@@ -1,0 +1,6 @@
+__pycache__
+testdata
+experiments/*
+!experiments/*.py
+
+example1.py
