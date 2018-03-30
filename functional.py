@@ -7,6 +7,14 @@ def flatten(x):
   return x.view(batch_size, -1)
 
 
+def randn_init(scale):
+  """Returns a function that randomly initializes the module."""
+  def func(module):
+    for p in module.parameters():
+      p = scale * torch.randn(*p.size())
+  return func
+
+
 #### METRICS ###########################################################
 """A metric is a function that takes two tensor arguments <outs> and <tgts>:
 the values returned by the model, and the target values; and returns

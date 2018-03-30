@@ -26,7 +26,7 @@ class Trainer:
   """Contains variables relevant for training, and facilitates their
   convenient reuse. Also contains training logic."""
   
-  def __init__(self, train_data, val_data, criterion, metrics, batch_size, num_epochs, optimizer, opt_kwargs):
+  def __init__(self, train_data, val_data, criterion, metrics, batch_size, optimizer, opt_kwargs = {}, num_epochs = 3):
     """Initializes the default values for parameters."""
     self.train_data = train_data
     self.val_data = val_data
@@ -53,20 +53,20 @@ class Trainer:
     val_loader = torch.utils.data.DataLoader(self.val_data, self.batch_size, False)
     tH = {f.__name__ : [] for f in self.metrics}
     vH = {f.__name__ : [] for f in self.metrics}
-    opt = self.optimizer(self.model.parameters(), *self.opt_kwargs)
+    opt = self.optimizer(self.model.parameters(), **self.opt_kwargs)
     
     stats = {f.__name__ : 0.0 for f in self.metrics}
     count = 0
     
-    for epoch in range(num_epochs):
-      logging.info("Epoch %d/%d", epoch + 1, num_epochs)
+    for epoch in range(self.num_epochs):
+      logging.info("Epoch %d/%d", epoch + 1, self.num_epochs)
       
       milestone = 0.0
       done = 0
       for ins, tgts in train_loader:
         ins = Variable(ins)
         tgts = Variable(tgts)
-        outs = model(ins)
+        outs = self.model(ins)
         loss = self.criterion(outs, tgts)
         opt.zero_grad()
         loss.backward()
@@ -75,8 +75,8 @@ class Trainer:
         # Log statistics.
         batch_size = ins.size()[0]
         for f in self.metrics:
-          tH[f.__name__].append(torch.mean(f(outs, tgts), dim = 0)[0])
-          stats[f.__name__] += torch.sum(f(outs, tgts), dim = 0)[0]
+          tH[f.__name__].append(torch.mean(f(outs.data, tgts.data), dim = 0)[0])
+          stats[f.__name__] += torch.sum(f(outs.data, tgts.data), dim = 0)[0]
         count += batch_size
         done += batch_size
         progress = done / len(self.train_data)
@@ -88,7 +88,7 @@ class Trainer:
           stats = {f.__name__ : 0.0 for f in self.metrics}
           count = 0
       
-      meter = validate(model, val_loader, self.metrics)
+      meter = validate(self.model, val_loader, self.metrics)
       for f in self.metrics:
         vH[f.__name__].append(meter[f.__name__])
     

@@ -62,7 +62,9 @@ def experiment(f):
   def res():
     logging.info("Experiment {}".format(f.__name__))
     exp_data, model = f()
-    append_all(exp_data, [f.__module__.split('.')[-1], f.__name__])
+    names = [f.__module__.split('.')[-1], f.__name__]
+    append_all(exp_data, names)
+    save_model(model, names)
     return model
   res.__name__ = f.__name__
   return res

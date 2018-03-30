@@ -1,8 +1,9 @@
 import numpy as np
 import torch
+from torch.autograd import Variable
 import torchvision
 from matplotlib import pyplot as plt
-import os, logging
+import os, logging, pickle
 
 
 dir_path = os.path.dirname(__file__)
@@ -52,21 +53,17 @@ def plot_arrays(names, smoothing = 0, stretch = False):
   """
   arrays = load_arrays(names)
   for name, arr in zip(names, arrays):
-    y = smooth(arr, smoothing)
-    y = torch.mean(y, dim = 0).numpy()
-    caption = name[1]
+    if arr.size()[0] == 1:
+      arr = torch.cat((arr, arr), dim = 0)
     
+    y = smooth(arr, smoothing).numpy()
     if stretch:
-      x = np.linspace(0, 1, arr.shape[0])
+      x = np.linspace(0, 1, arr.size()[0])
     else:
-      x = np.arange(arr.shape[0])
+      x = np.arange(arr.size()[0])
     
-    num_points = arr.size()[0]
-    func = plt.plot
-    if num_points == 1:
-      func = plt.scatter
-    
-    func(x, y, label = caption)
+    caption = name[1]
+    plt.plot(x, y, label = caption)
   
   plt.legend()
   plt.show()
@@ -100,6 +97,11 @@ def plot_auto(model, data, indices = range(8)):
 
 #### CONVENIENCE METHODS ###############################################
 
+def to_path(names):
+  """Converts a list of nested folder names into a 'path'."""
+  return os.path.join(dir_path, *names)
+
+
 def txt(name):
   """Create a name-list from the given string. The character separating
   different names is the '.' symbol."""
@@ -112,3 +114,26 @@ def context(left, names, right):
   list <right>, where something comes from the list <names>."""
   res = [left + [x] + right for x in names]
   return res
+
+
+#### LOADING STORED STUFF ##############################################
+
+def save_model(model, names):
+  """Saves a model to the location 'experiments/*names'."""
+  path = to_path(["experiments"] + names + ["model"])
+  try:
+    torch.save(model, path)
+  except:
+    with open(path, "wb") as fout:
+      pickle.dump(model, fout)
+
+
+def load_model(names):
+  """Loads a model from the location 'experiments/*names'."""
+  path = to_path(["experiments"] + txt(names) + ["model"])
+  try:
+    model = torch.load(path)
+  except:
+    with open(path, "rb") as fin:
+      model = pickle.load(fin)
+  return model

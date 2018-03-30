@@ -1,9 +1,11 @@
+import math
 import numpy as np
 import torch
 from torch import nn
 from lib.functional import flatten
 from lib.testdata import moments
 from lib.util import plot_imgs
+from .general import MyModule
 
 import logging
 
@@ -59,7 +61,7 @@ class PCA:
   
   def __call__(self, x):
     o_size = x.size()
-    return self.decode(self.code(x)).view(o_size)
+    return self.decode(self.code(x)).view(*o_size)
   
   def plot_transition(self, img, indices = None):
     """Plots the reconstruction of <img> while increasing the code size."""
@@ -72,22 +74,26 @@ class PCA:
     plot_imgs(to_show, num_cols = 8, normalize = True)
 
 
-class LinearAutoencoder(nn.Module):
+class LinearAutoencoder(MyModule):
   """Network that gets as input vector <x>, applies a linear transformation
   on it to obtain the code of <x>. To decode, apply a (different) linear
   transformation on the code. The input and output have the same dimensions,
   and the goal is to minimize the differences between input and output."""
   
-  def __init__(self, input_size, code_size, bias = False):
+  def __init__(self, input_size, code_size):
     super().__init__()
-    self.code = nn.Linear(input_size, code_size, bias)
-    self.decode = nn.Linear(code_size, input_size, bias)
+    self.coder = nn.Linear(input_size, code_size, True)
+    self.decode = nn.Linear(code_size, input_size, True)
+  
+  def code(self, x):
+    return self.coder(flatten(x))
   
   def forward(self, x):
-    return self.decode(self.code(x))
+    o_size = x.size()
+    return self.decode(self.code(x)).view(*o_size)
 
 
-class PCALikeAutoencoder(nn.Module):
+class PCALikeAutoencoder(MyModule):
   """Similar to LinearAutoencoder, except that this network enforces
   that the two transformations are transposes of one another, and there
   is no bias."""
@@ -118,16 +124,7 @@ class PCALikeAutoencoder(nn.Module):
     return self.decode(self.code(x))
 
 
-class PointAutoencoder(nn.Module):
-  """Special class of autoencoders. First, the input is compared to
-  multiple 'datapoints'---vectors of the same length as input. Each of
-  the datapoints is then assigned a weight, based on how close it was
-  to the input. These weights add up to 1, and they form the code of
-  the input. To decode, create a linear combination of datapoints,
-  weighted by aforementioned weights."""
-  
-  @staticmethod
-  def pairwise_distance(p, eps = 10**-12):
+def pairwise_distance(x, points, p = 2, eps = 10**-12):
     """
     Returns the L_p distance function, tuned for use in PointAutoencoder.
     Distance functions should take 2 values:
@@ -139,24 +136,36 @@ class PointAutoencoder(nn.Module):
     each value representing closeness of the input vector to that
     particular point.
     """
-    def func(x, points):
-      x = x.unsqueeze(1)
-      points = points.unsqueeze(0)
-      diff = torch.abs(x - points)
-      return torch.sum((diff + eps)**p, dim = -1)**(1/p)
-    return func
+    x = x.unsqueeze(1)
+    points = points.unsqueeze(0)
+    diff = torch.abs(x - points)
+    return torch.sum((diff + eps)**p, dim = -1)**(1/p)
+
+
+class PointAutoencoder(MyModule):
+  """Special class of autoencoders. First, the input is compared to
+  multiple 'datapoints'---vectors of the same length as input. Each of
+  the datapoints is then assigned a weight, based on how close it was
+  to the input. These weights add up to 1, and they form the code of
+  the input. To decode, create a linear combination of datapoints,
+  weighted by aforementioned weights."""
   
-  def __init__(self, input_size, code_size, dist_func = None):
+  def __init__(self, input_size, code_size, dist_func = pairwise_distance, adjust_sharp = True):
     super().__init__()
     self.points = nn.Parameter(torch.Tensor(code_size, input_size))
-    self.dist_func = (pairwise_distance(2) if dist_func is None else dist_func)
-    self.sharpness = nn.Parameter(torch.ones(1))
+    self.dist_func = dist_func
+    if adjust_sharp:
+      self.sharpness = nn.Parameter(torch.ones(1))
+    else:
+      self.sharpness = 1
   
   def code(self, x):
+    x = flatten(x)
     return nn.functional.softmin(self.sharpness * self.dist_func(x, self.points), dim = -1)
   
   def decode(self, y):
     return y.matmul(self.points)
   
   def forward(self, x):
-    return self.decode(self.code(x))
+    o_size = x.size()
+    return self.decode(self.code(x)).view(*o_size)
