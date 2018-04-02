@@ -1,5 +1,6 @@
 import torch
 from torch.autograd import Variable
+
 from lib import cuda
 
 import logging

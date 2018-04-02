@@ -3,6 +3,9 @@ import torch
 from torch.autograd import Variable
 import torchvision
 from matplotlib import pyplot as plt
+
+from lib import cuda
+
 import os, logging, pickle
 
 

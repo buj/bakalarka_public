@@ -1,6 +1,8 @@
 import torch
-import os, logging
+
 from lib.util import *
+
+import os, logging
 
 
 """

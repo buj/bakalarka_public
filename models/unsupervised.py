@@ -1,7 +1,7 @@
-import math
 import numpy as np
 import torch
 from torch import nn
+
 from lib.functional import flatten
 from lib.testdata import moments
 from lib.util import plot_imgs

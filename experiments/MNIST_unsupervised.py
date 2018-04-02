@@ -1,4 +1,5 @@
 import torch
+
 from lib.testdata import AutoDataset, load_MNIST
 from lib.training import Trainer
 from lib.experiments import experiment, get_plotter
