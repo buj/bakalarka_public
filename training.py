@@ -1,15 +1,24 @@
 import torch
 from torch.autograd import Variable
+from lib import cuda
 
 import logging
 
 
 def validate(model, val_data, metrics):
   """Calculates <metrics> for <model> on given <val_data>."""
+  if cuda:
+    model.cuda()
+  else:
+    model.cpu()
+  
   meter = {f.__name__ : 0.0 for f in metrics}
   count = 0
   
   for ins, tgts in val_data:
+    if cuda:
+      ins = ins.cuda()
+      tgts = tgts.cuda()
     batch_size = ins.size()[0]
     count += batch_size
     
@@ -34,14 +43,14 @@ class Trainer:
     self.criterion = criterion
     self.metrics = metrics
     self.batch_size = batch_size
-    self.num_epochs = num_epochs
     self.optimizer = optimizer
     self.opt_kwargs = opt_kwargs
+    self.num_epochs = num_epochs
   
   def set(self, **kwargs):
     """Changes the values imbued in this Trainer."""
     for name, value in kwargs.items():
-      if name in ["model", "criterion", "metrics", "batch_size", "num_epochs", "optimizer"]:
+      if name in ["model", "criterion", "metrics", "batch_size", "num_epochs", "optimizer", "cuda"]:
         self.__setattr__(name, value)
       else:
         self.opt_kwargs[name] = value
@@ -49,8 +58,13 @@ class Trainer:
   
   def train(self):
     """Trains the model, and returns the training and validation metrics plotted in time."""
-    train_loader = torch.utils.data.DataLoader(self.train_data, self.batch_size, True)
-    val_loader = torch.utils.data.DataLoader(self.val_data, self.batch_size, False)
+    if cuda:
+      self.model.cuda()
+    else:
+      self.model.cpu()
+    
+    train_loader = torch.utils.data.DataLoader(self.train_data, self.batch_size, True, pin_memory = cuda)
+    val_loader = torch.utils.data.DataLoader(self.val_data, self.batch_size, False, pin_memory = cuda)
     tH = {f.__name__ : [] for f in self.metrics}
     vH = {f.__name__ : [] for f in self.metrics}
     opt = self.optimizer(self.model.parameters(), **self.opt_kwargs)
@@ -64,6 +78,9 @@ class Trainer:
       milestone = 0.0
       done = 0
       for ins, tgts in train_loader:
+        if cuda:
+          ins = ins.cuda()
+          tgts = tgts.cuda()
         ins = Variable(ins)
         tgts = Variable(tgts)
         outs = self.model(ins)

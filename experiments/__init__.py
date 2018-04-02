@@ -3,8 +3,6 @@ import os, logging
 from lib.util import *
 
 
-cuda = torch.cuda.is_available()
-
 """
 Conventions:
 - Experiment's name is implicitly set as the module's name for convenience.

@@ -10,7 +10,7 @@ class MyModule(nn.Module):
   def __call__(self, x):
     # Converts <x> to Variable if necessary, because !@#%ing pytorch
     # can't do stuff when Tensors and Variables are mixed.
-    if isinstance(x, torch.Tensor):
+    if not isinstance(x, Variable):
       old_train = self.training
       self.train(False)
       x = Variable(x)
