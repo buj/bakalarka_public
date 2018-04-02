@@ -3,7 +3,7 @@ import torch
 from lib.testdata import AutoDataset, load_MNIST
 from lib.training import Trainer
 from lib.experiments import experiment, get_plotter
-from lib.functional import randn_init, mean_squared_error
+from lib.functional import mean_squared_error
 
 
 #### BOILERPLATE #######################################################
@@ -60,10 +60,9 @@ pcas = [gen_PCA(c, "pca{}".format(c)) for c in [1, 100, 200, 300, 400, 500, 600,
 
 from lib.models.unsupervised import LinearAutoencoder
 
-def gen_lin(code_size, lr, scale = 1, name = "temp"):
+def gen_lin(code_size, lr, name = "temp"):
   def func():
     model = LinearAutoencoder(784, code_size)
-    randn_init(scale)(model)
     trainer.set(model = model, lr = lr)
     return trainer.train(), model
   func.__name__ = name
@@ -83,14 +82,12 @@ from lib.models.unsupervised import PCALikeAutoencoder
 
 from lib.models.unsupervised import PointAutoencoder
 
-def gen_pt(code_size, lr, scale = 1, adjust_sharp = True, name = "temp"):
+def gen_pt(code_size, lr, name = "temp"):
   def func():
-    model = PointAutoencoder(784, code_size, adjust_sharp = adjust_sharp)
-    randn_init(scale)(model)
+    model = PointAutoencoder(784, code_size)
     trainer.set(model = model, lr = lr)
     return trainer.train(), model
   func.__name__ = name
   return experiment(func)
 
 pts = [gen_pt(100, 64 * 2**-i, name = "pt100_{}".format(i)) for i in range(2)]
-pts_soft = [gen_pt(100, 64 * 2**-i, False, name = "pt_soft100_{}".format(i)) for i in range(2)]

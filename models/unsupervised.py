@@ -102,7 +102,7 @@ class PCALikeAutoencoder(MyModule):
   
   def __init__(self, input_size, code_size):
     super().__init__()
-    self.weights = nn.Parameter(torch.Tensor(input_size, code_size))
+    self.weights = nn.Parameter(torch.zeros(input_size, code_size))
     self.normalized_weights = None
   
   def __setattr__(self, name, value):
@@ -165,7 +165,7 @@ class PointAutoencoder(MyModule):
   
   def __init__(self, input_size, code_size, dist_func = pairwise_distance, adjust_sharp = True):
     super().__init__()
-    self.points = nn.Parameter(torch.Tensor(code_size, input_size))
+    self.points = nn.Parameter(torch.zeros(code_size, input_size))
     self.dist_func = dist_func
     if adjust_sharp:
       self.sharpness = nn.Parameter(torch.ones(1))
