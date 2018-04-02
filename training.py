@@ -48,7 +48,7 @@ class Trainer:
     return self
   
   def train(self):
-    """Trains the model, and returns the training and validation metrics plotted in time."""    
+    """Trains the model, and returns the training and validation metrics plotted in time."""
     train_loader = torch.utils.data.DataLoader(self.train_data, self.batch_size, True)
     val_loader = torch.utils.data.DataLoader(self.val_data, self.batch_size, False)
     tH = {f.__name__ : [] for f in self.metrics}

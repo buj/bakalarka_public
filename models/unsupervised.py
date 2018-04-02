@@ -74,6 +74,8 @@ class PCA:
     plot_imgs(to_show, num_cols = 8, normalize = True)
 
 
+#### LINEAR AUTOENCODERS ###############################################
+
 class LinearAutoencoder(MyModule):
   """Network that gets as input vector <x>, applies a linear transformation
   on it to obtain the code of <x>. To decode, apply a (different) linear
@@ -124,6 +126,8 @@ class PCALikeAutoencoder(MyModule):
     return self.decode(self.code(x))
 
 
+#### POINT AUTOENCODER #################################################
+
 def pairwise_distance(x, points, p = 2, eps = 10**-12):
     """
     Returns the L_p distance function, tuned for use in PointAutoencoder.
@@ -142,6 +146,15 @@ def pairwise_distance(x, points, p = 2, eps = 10**-12):
     return torch.sum((diff + eps)**p, dim = -1)**(1/p)
 
 
+def adjust_sharpness_grad(model, grad_input, grad_output):
+  """Should be called after 'backward()' on PointAutoencoder. Adjusts
+  the gradient on the 'sharpness' parameter."""
+  if model.sharpness.grad is not None:
+    model.sharpness.grad.data *= model.sharpness.data
+    if model.sharpness.grad.data[0] > model.sharpness.data[0]:
+      model.sharpness.grad.data = model.sharpness.data
+
+
 class PointAutoencoder(MyModule):
   """Special class of autoencoders. First, the input is compared to
   multiple 'datapoints'---vectors of the same length as input. Each of
@@ -156,6 +169,7 @@ class PointAutoencoder(MyModule):
     self.dist_func = dist_func
     if adjust_sharp:
       self.sharpness = nn.Parameter(torch.ones(1))
+      self.register_backward_hook(adjust_sharpness_grad)
     else:
       self.sharpness = 1
   

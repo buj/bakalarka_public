@@ -3,9 +3,6 @@ from torch import nn
 from torch.autograd import Variable
 
 
-
-
-
 class MyModule(nn.Module):
   """Custom nn_module with enhanced capabilities that are missing in
   pytorch."""
