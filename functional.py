@@ -33,10 +33,23 @@ a single value (like accuracy, mean squared error, ...)."""
 def mean_squared_error(outs, tgts):
   return torch.mean(flatten((tgts - outs)**2), dim = 1)
 
+
 def cross_entropy(outs, tgts):
   """<tgts> is a number specifying which category is the right one.
   It is NOT a one-hot encoded target vector."""
   temp = torch.sum(flatten(torch.exp(outs)), dim = 1)
-  i = torch.LongTensor()
+  i = outs.new_empty(0, dtype = torch.long)
   torch.arange(outs.shape[0], out = i)
   return -outs[i, tgts] + torch.log(temp)
+
+
+def accuracy(outs, tgts):
+  """<tgts> is a number specifying which category is the right one.
+  <outs> is a vector of values that represent our estimates of 'how
+  likely is it this category'; the higher value, the more likely."""
+  i = outs.new_empty(0, dtype = torch.long)
+  torch.arange(outs.shape[0], out = i)
+  outs = flatten(outs)
+  res = outs.new_empty(0, dtype = torch.float)
+  torch.prod(outs <= outs[i, tgts].view(-1, 1), dim = 1, out = res)
+  return res
