@@ -85,9 +85,9 @@ def get_plotter(mod_names, td_type, metrics):
     a list of these options.
   <metrics>: Which metrics we want the plotter to plot.
   """
-  def res(exps, smoothing = 0):
+  def res(exps, smoothing = 0, **kwargs):
     exps = [f.__name__ for f in exps]
     for data in td_type:
       for f in metrics:
-        plot_arrays(context(txt(mod_names), exps, [data, f.__name__]), smoothing)
+        plot_arrays(context(txt(mod_names), exps, [data, f.__name__]), smoothing, **kwargs)
   return res
