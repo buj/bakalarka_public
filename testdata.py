@@ -83,16 +83,20 @@ def to_categorical(y, num_classes):
 #### DATASET LOADERS ###################################################
 
 def load_MNIST():
+  logging.info("Loading MNIST dataset...")
   path = os.path.join(testdata_dir, "MNIST")
   transform = torchvision.transforms.ToTensor()
-  trainset = torchvision.datasets.MNIST(root = path, train = True, download = False, transform = transform)
-  testset = torchvision.datasets.MNIST(root = path, train = False, download = False, transform = transform)
+  trainset = torchvision.datasets.MNIST(root = path, train = True, download = True, transform = transform)
+  testset = torchvision.datasets.MNIST(root = path, train = False, download = True, transform = transform)
+  logging.info("Done.")
   return trainset, testset
 
 
 def load_CIFAR10():
+  logging.info("Loading CIFAR10 dataset...")
   path = os.path.join(testdata_dir, "CIFAR10")
   transform = torchvision.transforms.ToTensor()
-  trainset = torchvision.datasets.CIFAR10(root = path, train = True, download = False, transform = transform)
-  testset = torchvision.datasets.CIFAR10(root = path, train = False, download = False, transform = transform)
+  trainset = torchvision.datasets.CIFAR10(root = path, train = True, download = True, transform = transform)
+  testset = torchvision.datasets.CIFAR10(root = path, train = False, download = True, transform = transform)
+  logging.info("Done.")
   return trainset, testset

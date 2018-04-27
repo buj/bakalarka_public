@@ -18,3 +18,82 @@ class MyModule(nn.Module):
       self.train(old_train)
       return res
     return super().__call__(x)
+
+
+class Functional(MyModule):
+  """A module that implements an arbitrary unary function. It has
+  no trainable parameters."""
+  
+  def __init__(self, func):
+    super().__init__()
+    self.func = func
+  
+  def forward(self, x):
+    return self.func(x)
+
+
+#### GENERAL PAREMETERIZED ACTIVATIONS #################################
+
+class Scaler(MyModule):
+  """Can wrap an activation function. Enables scaling of both the input
+  and the output."""
+  
+  def __init__(self, sub):
+    self.sub = sub
+    self.ax = nn.Parameter(torch.ones(1))
+    self.ay = nn.Parameter(torch.ones(1))
+  
+  def forward(self, x):
+    return self.ay * self.sub(x * self.ax)
+
+
+class Zoomer(MyModule):
+  """Can wrap an activation function. Enables scaling of both the input
+  and the output. The scalings are inverse, and the result is a 'zoom-in'
+  or 'zoom-out' of the activation function."""
+  
+  def __init__(self, sub, eps = 10**-6):
+    self.sub = sub
+    self.eps = eps
+    self.k = nn.Parameter(torch.ones(1))
+  
+  def forward(self, x):
+    if torch.abs(self.k) < self.eps:
+      return self.sub(x * self.eps) / self.eps
+    return self.sub(x * self.k) / self.k
+
+
+class Centerer(MyModule):
+  """Can wrap an activation function. Enables centering of both the input
+  and the output."""
+  
+  def __init__(self, sub):
+    self.sub = sub
+    self.bx = nn.Parameter(torch.zeros(1))
+    self.by = nn.Parameter(torch.zeros(1))
+  
+  def forward(self, x):
+    return self.sub(x + self.bx) + self.by
+
+
+class Shaker(MyModule):
+  """Can wrap an activation function. Enables centering of both the input
+  and the output. The adjustments are inverse with respect to each other."""
+  
+  def __init__(self, sub):
+    self.sub = sub
+    self.b = nn.Parameter(torch.zeros(1))
+  
+  def forward(self, x):
+    return self.sub(x + self.b) + self.b
+
+
+#### CREATION OPS ######################################################
+
+def act_after(act):
+  """Returns an unary function that ignores its arguments (input size
+  and output size) and creates a new functional module
+  that carries out activation <act>."""
+  def res(*args):
+    return Functional(act)
+  return res

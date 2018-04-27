@@ -25,7 +25,7 @@ def validate(model, val_data, metrics):
     
     outs = model(ins)
     for f in metrics:
-      meter[f.__name__] += torch.sum(f(outs, tgts), dim = 0)[0]
+      meter[f.__name__] += torch.sum(f(outs, tgts), dim = 0).item()
   
   for f in metrics:
     meter[f.__name__] /= count
@@ -93,8 +93,8 @@ class Trainer:
         # Log statistics.
         batch_size = ins.size()[0]
         for f in self.metrics:
-          tH[f.__name__].append(torch.mean(f(outs.data, tgts.data), dim = 0)[0])
-          stats[f.__name__] += torch.sum(f(outs.data, tgts.data), dim = 0)[0]
+          tH[f.__name__].append(torch.mean(f(outs.data, tgts.data), dim = 0).item())
+          stats[f.__name__] += torch.sum(f(outs.data, tgts.data), dim = 0).item()
         count += batch_size
         done += batch_size
         progress = done / len(self.train_data)
