@@ -27,14 +27,14 @@ from lib.models.convnet import convnet, init_weights
 from lib.models.general import act_after
 
 
-def gen_relu0(lr, parallel = False, name = "temp"):
+def gen_relu0(lr, parallel = False, name = "temp", **kwargs):
   """Generates an experiment with a plain relu convolutional network."""
   def func():
     model = convnet(act_after(nn.functional.relu))
     model.apply(init_weights(nn.init.calculate_gain("relu")))
     if parallel:
       model = torch.nn.DataParallel(model)
-    trainer.set(model = model, lr = lr)
+    trainer.set(model = model, lr = lr, **kwargs)
     return trainer.train(), model
   func.__name__ = name
   return experiment(func)
