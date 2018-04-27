@@ -23,7 +23,7 @@ trainer = Trainer(train_data, val_data, criterion, metrics, 512, torch.optim.SGD
 
 #### RELU with NOTHING #################################################
 
-from lib.models.convnet import step, weight_normed, layer_normed, batch_normed, convnet, init_weights
+from lib.models.convnet import step, layer_normed, batch_normed, convnet, init_weights
 from lib.models.general import act_after
 
 
@@ -31,13 +31,14 @@ def gen(
   lr, parallel = False,
   after_func = act_after(nn.functional.relu),
   step_func = step, gain = nn.init.calculate_gain("relu"),
+  weight_norm = False,
   name = "temp", **kwargs
 ):
   """Generates an experiment. The activation function is determined by
   <after_func>. Use of normalization is determined by <step_func>."""
   def func():
     model = convnet(after_func, step_func)
-    model.apply(init_weights(nn.init.calculate_gain("relu")))
+    model.apply(init_weights(gain, weight_norm))
     if parallel:
       model = torch.nn.DataParallel(model)
     trainer.set(model = model, lr = lr, **kwargs)

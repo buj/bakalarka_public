@@ -83,15 +83,6 @@ def step(name):
   return step_table[name](*args, **kwargs)
 
 
-def weight_normed(name):
-  """Returns the module that should be added to our convnet in
-  step named 'name'. The module is weight normalized if applicable."""
-  module = step(name)
-  if module and name not in ["flatten"]:
-    module = nn.weight_norm(module)
-  return module
-
-
 def layer_normed(name):
   """Returns the same module as in 'step', except that it is layer
   normalized."""
@@ -135,13 +126,15 @@ def convnet(after_func, step_func = step):
   return nn.Sequential(OrderedDict(pipeline))
 
 
-def init_weights(gain):
+def init_weights(gain, weight_norm = False):
   """Returns a function, that initializes our convnet's parameters
   recursively, using a variant of the xavier initialization with the
   given gain <gain>."""
   def func(module):
     if type(module) in [nn.Linear, nn.Conv2d]:
       nn.init.xavier_normal_(module.weight, gain)
+      if weight_norm:
+        nn.utils.weight_norm(module)
       if module.bias is not None:
         with torch.no_grad():
           module.bias.fill_(0)
