@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 
 from lib import cuda
 
-import os, logging, pickle
+import os, logging, dill
 
 
 dir_path = os.path.dirname(__file__)
@@ -125,20 +125,20 @@ def save_model(model, names):
   """Saves a model to the location 'experiments/*names'."""
   path = to_path(["experiments"] + names + ["model"])
   try:
-    torch.save(model, path)
+    torch.save(model, path, pickle_module = dill)
   except:
     with open(path, "wb") as fout:
-      pickle.dump(model, fout)
+      dill.dump(model, fout)
 
 
 def load_model(names):
   """Loads a model from the location 'experiments/*names'."""
   path = to_path(["experiments"] + txt(names) + ["model"])
   try:
-    model = torch.load(path)
+    model = torch.load(path, pickle_module = dill)
   except:
     with open(path, "rb") as fin:
-      model = pickle.load(fin)
+      model = dill.load(fin)
   return model
 
 
