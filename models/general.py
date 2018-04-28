@@ -50,6 +50,7 @@ class Scaler(MyModule):
     is None if we don't want to adjust the gradient, and any real value
     otherwise (used in scaler grad). The larger <eps> is, the easier it
     is to change the sign of 'self.ax' and 'self.ay'."""
+    super().__init__()
     self.sub = sub
     self.ax = nn.Parameter(torch.ones(1))
     self.ay = nn.Parameter(torch.ones(1))
@@ -73,6 +74,7 @@ class Zoomer(MyModule):
   or 'zoom-out' of the activation function."""
   
   def __init__(self, sub, adjust_grad = True):
+    super().__init__()
     self.sub = sub
     self.k = nn.Parameter(torch.zeros(1))
     if adjust_grad:
@@ -87,6 +89,7 @@ class Centerer(MyModule):
   and the output."""
   
   def __init__(self, sub):
+    super().__init__()
     self.sub = sub
     self.bx = nn.Parameter(torch.zeros(1))
     self.by = nn.Parameter(torch.zeros(1))
@@ -100,6 +103,7 @@ class Tracker(MyModule):
   and the output. The adjustments are inverse with respect to each other."""
   
   def __init__(self, sub):
+    super().__init__()
     self.sub = sub
     self.b = nn.Parameter(torch.zeros(1))
   
@@ -116,6 +120,7 @@ class ParameterizedSgnlog(MyModule):
   """Implements the parameterized sgnlog."""
   
   def __init__(self):
+    super().__init__()
     # Start as a linear function.
     self.p = nn.Parameter(torch.ones(1))
   
