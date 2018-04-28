@@ -63,7 +63,7 @@ def batch_normed(arch, name):
 
 #### AFTER FUNCS #######################################################
 
-from .general import ParameterizedSgnlog, Scaler, Zoomer, Centerer, Tracker
+from .general import ParameterizedSgnlog, Scaler, Zoomer, Centerer, Tracker, NegPoser
 
 
 after_mapper = {}
@@ -83,50 +83,54 @@ def is_after_func(f):
 #### RELU activations
 
 @is_after_func
-def relu(arch, name):
+def relu(*args):
   return Functional(nn.functional.relu)
 
 @is_after_func
-def sc_relu(arch, name):
-  return Scaler(Centerer(Functional(nn.functional.relu)))
+def sc_relu(*args):
+  return Scaler(Centerer(relu()))
 
 @is_after_func
-def zt_relu(arch, name):
-  return Zoomer(Tracker(Functional(nn.functional.relu)))
+def zt_relu(*args):
+  return Zoomer(Tracker(relu()))
 
 
 #### SGNLOG activations
 
 @is_after_func
-def sgnlog(arch, name):
+def sgnlog(*args):
   return Functional(sgnlog_func)
 
 @is_after_func
-def sc_sgnlog(arch, name):
-  return Scaler(Centerer(Functional(sgnlog_func)))
+def sc_sgnlog(*args):
+  return Scaler(Centerer(sgnlog()))
 
 @is_after_func
-def zt_sgnlog(arch, name):
-  return Zoomer(Tracker(Functional(sgnlog_func)))
+def zt_sgnlog(*args):
+  return Zoomer(Tracker(sgnlog()))
 
 @is_after_func
-def parameterized_sgnlog(arch, name):
+def negpos_sgnlog(*args):
+  return NegPoser(Zoomer(sgnlog()), Zoomer(sgnlog()))
+
+@is_after_func
+def parameterized_sgnlog(*args):
   return ParameterizedSgnlog()
 
 
 #### TANH activations
 
 @is_after_func
-def tanh(arch, name):
+def tanh(*args):
   return Functional(nn.functional.tanh)
 
 @is_after_func
-def sc_tanh(arch, name):
-  return Scaler(Centerer(Functional(nn.functional.tanh)))
+def sc_tanh(*args):
+  return Scaler(Centerer(tanh()))
 
 @is_after_func
-def zt_tanh(arch, name):
-  return Zoomer(Tracker(Functional(nn.functional.tanh)))
+def zt_tanh(*args):
+  return Zoomer(Tracker(tanh()))
 
 
 #### CREATION OF NET ###################################################

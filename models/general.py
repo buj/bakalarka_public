@@ -46,43 +46,35 @@ class Scaler(MyModule):
   """Can wrap an activation function. Enables scaling of both the input
   and the output."""
   
-  def __init__(self, sub, eps = 10**-6):
+  def __init__(self, sub, eps = 10**-6, ins = True, outs = True):
     """<sub> is the underlying activation that is to be scaled. <eps>
     is None if we don't want to adjust the gradient, and any real value
     otherwise (used in scaler grad). The larger <eps> is, the easier it
     is to change the sign of 'self.ax' and 'self.ay'."""
     super().__init__()
     self.sub = sub
-    self.ax = nn.Parameter(torch.ones(1))
-    self.ay = nn.Parameter(torch.ones(1))
+    self.ax = nn.Parameter(torch.ones(1)) if ins else 1
+    self.ay = nn.Parameter(torch.ones(1)) if outs else 1
     if eps is not None:
       self.eps = eps
-      self.ax.register_hook(scaler_grad(self.ax, self.eps))
-      self.ay.register_hook(scaler_grad(self.ay, self.eps))
+      if ins:
+        self.ax.register_hook(scaler_grad(self.ax, self.eps))
+      if outs:
+        self.ay.register_hook(scaler_grad(self.ay, self.eps))
   
   def forward(self, x):
     return self.ay * self.sub(x * self.ax)
 
-
-def zoomer_grad(param):
-  """Returns a hook that adjusts the gradient with respect to <k>.
-  Used by the Zoomer module."""
-  def hook(grad):
-    with torch.no_grad():
-      return grad / param
-  return hook
 
 class Zoomer(MyModule):
   """Can wrap an activation function. Enables scaling of both the input
   and the output. The scalings are inverse, and the result is a 'zoom-in'
   or 'zoom-out' of the activation function."""
   
-  def __init__(self, sub, adjust_grad = True):
+  def __init__(self, sub):
     super().__init__()
     self.sub = sub
     self.k = nn.Parameter(torch.zeros(1))
-    if adjust_grad:
-      self.k.register_hook(zoomer_grad(self.k))
   
   def forward(self, x):
     return torch.exp(-self.k) * self.sub(x * torch.exp(self.k))
@@ -92,11 +84,11 @@ class Centerer(MyModule):
   """Can wrap an activation function. Enables centering of both the input
   and the output."""
   
-  def __init__(self, sub):
+  def __init__(self, sub, ins = True, outs = True):
     super().__init__()
     self.sub = sub
-    self.bx = nn.Parameter(torch.zeros(1))
-    self.by = nn.Parameter(torch.zeros(1))
+    self.bx = nn.Parameter(torch.zeros(1)) if ins else 0
+    self.by = nn.Parameter(torch.zeros(1)) if outs else 0
   
   def forward(self, x):
     return self.sub(x + self.bx) + self.by
@@ -113,6 +105,23 @@ class Tracker(MyModule):
   
   def forward(self, x):
     return self.sub(x + self.b) - self.sub(self.b)
+
+
+class NegPoser(MyModule):
+  """Wraps two activation functions. The first determines the behaviour
+  on negative values, the second determines the behaviour on
+  positive values. For zero, returns the average of the two."""
+  
+  def __init__(self, sub1, sub2):
+    super().__init__()
+    self.sub1 = sub1
+    self.sub2 = sub2
+  
+  def forward(self, x):
+    neg = self.sub1(x)
+    pos = self.sub2(x)
+    sgn = torch.sign(x)
+    return (1+sgn)/2 * pos + (1-sgn)/2 * neg
 
 
 #### SPECIFIC PARAMETERIZED FUNCTIONS ##################################
