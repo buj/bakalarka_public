@@ -39,9 +39,12 @@ def gen(
   params = locals()
   
   # Translate from english names to python objects.
-  convnet = net_mapper[convnet]
-  after_func = after_mapper.get(after_func, None)
-  step_func = step_mapper.get(step_func, None)
+  if type(convnet) is str:
+    convnet = net_mapper[convnet]
+  if type(after_func) is str:
+    after_func = after_mapper.get(after_func, None)
+  if type(step_func) is str:
+    step_func = step_mapper.get(step_func, None)
   
   def func():
     model = convnet(after_func, step_func)

@@ -63,6 +63,9 @@ def batch_normed(arch, name):
 
 #### AFTER FUNCS #######################################################
 
+from .general import ParameterizedSgnlog, Scaler, Zoomer, Centerer, Tracker
+
+
 after_mapper = {}
 
 
@@ -81,10 +84,31 @@ def is_after_func(f):
 def relu(arch, name):
   return Functional(nn.functional.relu)
 
+@is_after_func
+def sc_relu(arch, name):
+  return Scaler(Centerer(Functional(nn.functional.relu)))
+
+@is_after_func
+def zt_relu(arch, name):
+  return Zoomer(Tracker(Functional(nn.functional.relu)))
+
 
 @is_after_func
 def sgnlog(arch, name):
   return Functional(sgnlog_func)
+
+@is_after_func
+def sc_sgnlog(arch, name):
+  return Scaler(Centerer(Functional(sgnlog_func)))
+
+@is_after_func
+def zt_sgnlog(arch, name):
+  return Zoomer(Tracker(Functional(sgnlog_func)))
+
+
+@is_after_func
+def parameterized_sgnlog(arch, name):
+  return ParameterizedSgnlog()
 
 
 #### CREATION OF NET ###################################################
