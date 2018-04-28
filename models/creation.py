@@ -8,56 +8,40 @@ from collections import OrderedDict
 import logging
 
 
-#### STEP FUNCS ########################################################
+#### NORM FUNCS ########################################################
 
-step_mapper = {}
+norm_mapper = {}
 
 
-def is_step_func(f):
-  """Registers <f> in the step_mapper."""
+def is_norm_func(f):
+  """Registers <f> in the norm_mapper."""
   name = f.__name__
-  global step_mapper
-  if name in step_mapper:
-    logging.info("Already have a function named %s in step_mapper! Aborting", name)
+  global norm_mapper
+  if name in norm_mapper:
+    logging.info("Already have a function named %s in norm_mapper! Aborting", name)
   else:
-    step_mapper[name] = f
+    norm_mapper[name] = f
   return f
 
 
-@is_step_func
-def step(arch, name):
-  """Returns the module that should be added to our net in step
-  named 'name'."""
-  if name not in arch.table:
-    return None
-  args = arch.args.get(name, [])
-  kwargs = arch.kwargs.get(name, {})
-  return arch.table[name](*args, **kwargs)
+@is_norm_func
+def layer_norm(arch, name):
+  """Returns a layer normalization module that can be applied right
+  after step <name>."""
+  if name not in ["flatten"]:
+    return nn.LayerNorm(arch.sizes[name])
 
 
-@is_step_func
-def layer_normed(arch, name):
-  """Returns the same module as in 'step', except that it is layer
-  normalized."""
-  module = step(arch, name)
-  if module and name not in ["flatten"]:
-    module = nn.Sequential(module, nn.LayerNorm(arch.sizes[name]))
-  return module
-
-
-@is_step_func
-def batch_normed(arch, name):
-  """Returns the same module as in 'step', except that it is batch
-  normalized."""
-  module = step(arch, name)
-  if module and name not in ["flatten"]:
+@is_norm_func
+def batch_norm(arch, name):
+  """Returns a batch normalization module that can be applied right
+  after step <name>."""
+  if name not in ["flatten"]:
     c = arch.sizes[name][0]
     if name[:4] == "conv":
-      norm_class = nn.BatchNorm2d
+      return nn.BatchNorm2d(c)
     elif name[:5] == "dense":
-      norm_class = nn.BatchNorm1d
-    module = nn.Sequential(module, norm_class(c))
-  return module
+      return nn.BatchNorm1d(c)
 
 
 #### AFTER FUNCS #######################################################
@@ -153,6 +137,16 @@ def zt_linsin2(*args):
 net_mapper = {}
 
 
+def step(arch, name):
+  """Returns the module that should be added to our net in step
+  named 'name'."""
+  if name not in arch.table:
+    return None
+  args = arch.args.get(name, [])
+  kwargs = arch.kwargs.get(name, {})
+  return arch.table[name](*args, **kwargs)
+
+
 class NetDescription:
   """Contains the description of the convolutional network: parameters
   and steps that construct the net."""
@@ -183,24 +177,22 @@ class NetDescription:
     self.args = args
     self.kwargs = kwargs
     self.sizes = sizes
-    
-    # Default values for 'after_func' and 'step_func' during construction.
-    global step
-    self.after_func = None
-    self.step_func = step
   
-  def __call__(self, after_func = None, step_func = None):
+  def __call__(self, after_func = None, norm_func = None):
     """Returns a constructed net."""
-    if not after_func:
-      after_func = self.after_func
-    if not step_func:
-      step_func = self.step_func
-    
     pipeline = []
     for name in self.names:
-      mod1 = step_func(self, name)
-      if mod1:
-        pipeline.append((name, mod1))
+      mod0 = step(self, name)
+      if mod0:
+        pipeline.append((name, mod0))
+      
+      if norm_func:
+        # Do not use norm_func after the last step.
+        if name in self.next_names:
+          name1 = "norm_{}".format(name)
+          mod1 = norm_func(self, name)
+          if mod1:
+            pipeline.append((name1, mod1))
       
       if after_func:
         # Do not use activation in the last layer.

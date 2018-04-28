@@ -104,7 +104,7 @@ class Experiment:
     in the experiment's folder."""
     logging.info("Experiment {}".format(self.name))
     exp_data, model = self.func()
-    names = [self.prefix, self.name]
+    names = [self.prefix, self.name, self.net]
     append_all(exp_data, names)
     save_model(model, names)
     return model
