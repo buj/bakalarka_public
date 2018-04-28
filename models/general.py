@@ -34,12 +34,13 @@ class Functional(MyModule):
 
 #### GENERAL PAREMETERIZED ACTIVATIONS #################################
 
-def scaler_grad(module, grad_ins, grad_outs):
-  """Adjusts the gradient with respect to <module>.ax and <module>.ay,
-  where <module> should be a Scaler module."""
-  with torch.no_grad():
-    module.ax.grad *= (module.eps**2 + module.ax.data**2)**0.5
-    module.ay.grad *= (module.eps**2 + module.ay.data**2)**0.5
+def scaler_grad(param, eps):
+  """Returns a hook that adjusts the gradient with respect to <param>.
+  Used by the Scaler module."""
+  def hook(grad):
+    with torch.no_grad():
+      return grad * (eps**2 + param**2)**0.5
+  return hook
 
 class Scaler(MyModule):
   """Can wrap an activation function. Enables scaling of both the input
@@ -56,17 +57,20 @@ class Scaler(MyModule):
     self.ay = nn.Parameter(torch.ones(1))
     if eps is not None:
       self.eps = eps
-      self.register_backward_hook(scaler_grad)
+      self.ax.register_hook(scaler_grad(self.ax, self.eps))
+      self.ay.register_hook(scaler_grad(self.ay, self.eps))
   
   def forward(self, x):
     return self.ay * self.sub(x * self.ax)
 
 
-def zoomer_grad(module, grad_ins, grad_outs):
-  """Adjusts the gradient with respect to <module>.k. <module>
-  should be a Zoomer module."""
-  with torch.no_grad():
-    module.k.grad /= module.k.data
+def zoomer_grad(param):
+  """Returns a hook that adjusts the gradient with respect to <k>.
+  Used by the Zoomer module."""
+  def hook(grad):
+    with torch.no_grad():
+      return grad / param
+  return hook
 
 class Zoomer(MyModule):
   """Can wrap an activation function. Enables scaling of both the input
@@ -78,7 +82,7 @@ class Zoomer(MyModule):
     self.sub = sub
     self.k = nn.Parameter(torch.zeros(1))
     if adjust_grad:
-      self.register_backward_hook(zoomer_grad)
+      self.k.register_hook(zoomer_grad(self.k))
   
   def forward(self, x):
     return torch.exp(-self.k) * self.sub(x * torch.exp(self.k))
