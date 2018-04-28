@@ -80,6 +80,8 @@ def is_after_func(f):
   return f
 
 
+#### RELU activations
+
 @is_after_func
 def relu(arch, name):
   return Functional(nn.functional.relu)
@@ -93,6 +95,8 @@ def zt_relu(arch, name):
   return Zoomer(Tracker(Functional(nn.functional.relu)))
 
 
+#### SGNLOG activations
+
 @is_after_func
 def sgnlog(arch, name):
   return Functional(sgnlog_func)
@@ -105,10 +109,24 @@ def sc_sgnlog(arch, name):
 def zt_sgnlog(arch, name):
   return Zoomer(Tracker(Functional(sgnlog_func)))
 
-
 @is_after_func
 def parameterized_sgnlog(arch, name):
   return ParameterizedSgnlog()
+
+
+#### TANH activations
+
+@is_after_func
+def tanh(arch, name):
+  return Functional(nn.functional.tanh)
+
+@is_after_func
+def sc_tanh(arch, name):
+  return Scaler(Centerer(Functional(nn.functional.tanh)))
+
+@is_after_func
+def zt_tanh(arch, name):
+  return Zoomer(Tracker(Functional(nn.functional.tanh)))
 
 
 #### CREATION OF NET ###################################################

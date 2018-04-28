@@ -36,7 +36,15 @@ class Trainer:
   """Contains variables relevant for training, and facilitates their
   convenient reuse. Also contains training logic."""
   
-  def __init__(self, train_data, val_data, criterion, metrics, batch_size, optimizer, scheduler = None, opt_kwargs = {}, sch_kwargs = {}, num_epochs = 3):
+  def __init__(
+    self,
+    train_data, val_data,
+    criterion, metrics,
+    batch_size,
+    optimizer, scheduler = None, opt_kwargs = {}, sch_kwargs = {},
+    num_epochs = 3,
+    early_stopping = 1023456789 # almost like infinity
+  ):
     """Initializes the default values for parameters."""
     self.train_data = train_data
     self.val_data = val_data
@@ -49,11 +57,14 @@ class Trainer:
     self.opt_kwargs = opt_kwargs
     self.sch_kwargs = sch_kwargs
     self.num_epochs = num_epochs
+    
+    # Early stopping is based on the first metric in the <metrics> list.
+    self.early_stopping = early_stopping
   
   def set(self, **kwargs):
     """Changes the values imbued in this Trainer."""
     for name, value in kwargs.items():
-      if name in ["model", "criterion", "metrics", "batch_size", "num_epochs", "optimizer", "cuda", "scheduler"]:
+      if name in ["model", "criterion", "metrics", "batch_size", "num_epochs", "optimizer", "cuda", "scheduler", "early_stopping"]:
         self.__setattr__(name, value)
       elif name[:4] == "sch_":
         self.sch_kwargs[name[4:]] = value
@@ -70,8 +81,12 @@ class Trainer:
     
     train_loader = torch.utils.data.DataLoader(self.train_data, self.batch_size, True, pin_memory = cuda)
     val_loader = torch.utils.data.DataLoader(self.val_data, self.batch_size, False, pin_memory = cuda)
+    
     tH = {f.__name__ : [] for f in self.metrics}
     vH = {f.__name__ : [] for f in self.metrics}
+    best_val = None
+    patience = self.early_stopping
+    
     opt = self.optimizer(self.model.parameters(), **self.opt_kwargs)
     if self.scheduler:
       sch = self.scheduler(opt, **self.sch_kwargs)
@@ -112,12 +127,24 @@ class Trainer:
           milestone = progress
           for f in self.metrics:
             stats[f.__name__] /= count
-          logging.info("Progress %d%%, metrics: %s", int(100*progress), stats)
+          logging.info("\tProgress %d%%, metrics: %s", int(100*progress), stats)
           stats = {f.__name__ : 0.0 for f in self.metrics}
           count = 0
       
       meter = validate(self.model, val_loader, self.metrics)
+      logging.info("Validation metrics after epoch %d/%d: %s", epoch + 1, self.num_epochs, meter)
       for f in self.metrics:
         vH[f.__name__].append(meter[f.__name__])
+      
+      # Early stopping.
+      curr_val = meter[self.metrics[0].__name__]
+      if best_val is None or curr_val < best_val:
+        best_val = curr_val
+        patience = self.early_stopping
+      else:
+        patience -= 1
+        if patience <= 0:
+          logging.info("Patience run out, stopping early. Best validation error was %.9f", best_val)
+          break
     
     return {"train": tH, "val": vH}
