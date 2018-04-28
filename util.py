@@ -140,3 +140,6 @@ def load_model(names):
     with open(path, "rb") as fin:
       model = pickle.load(fin)
   return model
+
+
+#### RANDOM STUFF ######################################################

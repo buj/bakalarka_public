@@ -55,12 +55,71 @@ def append_all(vals, exp_names):
       append(torch.Tensor(x), exp_names + [name1, name2])
 
 
+def save_params(params, exp_names):
+  """Saves experiment parameters into experiment folder for later use."""
+  folder = os.path.join(dir_path, *exp_names)
+  filename = "params.txt"
+  path = os.path.join(folder, filename)
+  os.makedirs(folder, exist_ok = True)
+  with open(path, "w") as fout:
+    for name, value in params.items():
+      if name == "kwargs":
+        for name2, value2 in value.items():
+          print(name2, "=", value2, file = fout)
+      else:
+        print(name, "=", value, file = fout)
+
+
+class Experiment:
+  """Implements an experimental setup. Can be called to carry out
+  the experiment coded in it."""
+  
+  def __init__(self, params, func):
+    """
+    <params>: the parameters of the experiment (for further
+      reproduction)
+    <func>: the function that is to be carried out. It should take
+      no arguments and return a tuple containing the experiment data
+      and trained model.
+    """
+    self.params = params
+    self.func = func
+    if "name" not in self.params:
+      self.params["name"] = func.__name__
+    if "prefix" not in self.params:
+      self.params["prefix"] = func.__module__.split('.')[-1]
+    save_params(self.params, [self.prefix, self.name])
+  
+  def __getattr__(self, name):
+    """If we have no attribute named <name>, check the self.params dict."""
+    if name in self.__dict__:
+      return self.__dict__[name]
+    params = self.__dict__["params"]
+    if name in params:
+      return params[name]
+    raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, name))
+  
+  def __call__(self):
+    """Carry out the experiment, and automatically store its data
+    in the experiment's folder."""
+    logging.info("Experiment {}".format(self.name))
+    exp_data, model = self.func()
+    names = [self.prefix, self.name]
+    append_all(exp_data, names)
+    save_model(model, names)
+    return model
+
+
 def experiment(f):
-  """Wrapper that takes a function <f> and returns a 'proper' version
+  """
+  Deprecated. Use the class 'Experiment' instead.
+  
+  Wrapper that takes a function <f> and returns a 'proper' version
   of that function. <f> should take no arguments and return experiment
   data (a two-layer dict) and the trained model. The returned function
   will automatically append this data to the prior experiment data
-  and return the model."""
+  and return the model.
+  """
   def res():
     logging.info("Experiment {}".format(f.__name__))
     exp_data, model = f()

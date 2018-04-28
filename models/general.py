@@ -52,15 +52,12 @@ class Zoomer(MyModule):
   and the output. The scalings are inverse, and the result is a 'zoom-in'
   or 'zoom-out' of the activation function."""
   
-  def __init__(self, sub, eps = 10**-6):
+  def __init__(self, sub):
     self.sub = sub
-    self.eps = eps
-    self.k = nn.Parameter(torch.ones(1))
+    self.k = nn.Parameter(torch.zeros(1))
   
   def forward(self, x):
-    if torch.abs(self.k) < self.eps:
-      return self.sub(x * self.eps) / self.eps
-    return self.sub(x * self.k) / self.k
+    return torch.exp(-self.k) * self.sub(x * torch.exp(self.k))
 
 
 class Centerer(MyModule):
@@ -85,15 +82,4 @@ class Shaker(MyModule):
     self.b = nn.Parameter(torch.zeros(1))
   
   def forward(self, x):
-    return self.sub(x + self.b) + self.b
-
-
-#### CREATION OPS ######################################################
-
-def act_after(act):
-  """Returns an unary function that ignores its arguments (input size
-  and output size) and creates a new functional module
-  that carries out activation <act>."""
-  def res(*args):
-    return Functional(act)
-  return res
+    return self.sub(x + self.b) - self.sub(self.b)
