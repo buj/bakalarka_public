@@ -1,7 +1,24 @@
 import torch
+import math
 
 
 #### ACTIVATIONS #######################################################
+
+def linsin_gen(k):
+  """Returns the elementwise 'linear sinus' with base <k>."""
+  def func(x):
+    ln_k = math.log(k)
+    sin_part = math.pi * torch.sin(math.pi * torch.log(torch.abs(x)) / ln_k)
+    cos_part = ln_k * torch.cos(math.pi * torch.log(torch.abs(x)) / ln_k)
+    denom = ln_k**2 + math.pi**2
+    res = x * (1 + ln_k * (sin_part + cos_part) / denom)
+    res[x == 0] = 0
+    return res
+  func.__name__ = "linsin{}".format(k)
+  return func
+
+linsin2 = linsin_gen(2)
+
 
 def sgnlog(x):
   """Elementwise sgnlog."""

@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 
-from lib.functional import sgnlog as sgnlog_func
 from .general import MyModule, Functional
 
 from collections import OrderedDict
@@ -64,6 +63,7 @@ def batch_normed(arch, name):
 #### AFTER FUNCS #######################################################
 
 from .general import ParameterizedSgnlog, Scaler, Zoomer, Centerer, Tracker, NegPoser
+from lib.functional import sgnlog as sgnlog_func, linsin2 as linsin2_func
 
 
 after_mapper = {}
@@ -131,6 +131,21 @@ def sc_tanh(*args):
 @is_after_func
 def zt_tanh(*args):
   return Zoomer(Tracker(tanh()))
+
+
+#### LINSIN activations
+
+@is_after_func
+def linsin2(*args):
+  return Functional(linsin2_func)
+
+@is_after_func
+def sc_linsin2(*args):
+  return Scaler(Centerer(linsin2()))
+
+@is_after_func
+def zt_linsin2(*args):
+  return Zoomer(Tracker(linsin2()))
 
 
 #### CREATION OF NET ###################################################
