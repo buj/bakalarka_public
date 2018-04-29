@@ -24,7 +24,17 @@ def is_norm_func(f):
   return f
 
 
-@is_norm_func
+def non_flatten_norm_func(f):
+  """Registers <f> in the norm mapper, and in addition to that,
+  makes it ignore the 'flatten' step."""
+  def func(*args):
+    if len(args) < 2 or args[1] not in ["flatten"]:
+      return f(*args)
+  func.__name__ = f.__name__
+  return is_norm_func(func)
+
+
+@non_flatten_norm_func
 def layer_norm(arch, name):
   """Returns a layer normalization module that can be applied right
   after step <name>."""
@@ -32,7 +42,7 @@ def layer_norm(arch, name):
     return nn.LayerNorm(arch.sizes[name])
 
 
-@is_norm_func
+@non_flatten_norm_func
 def batch_norm(arch, name):
   """Returns a batch normalization module that can be applied right
   after step <name>."""
@@ -64,70 +74,80 @@ def is_after_func(f):
   return f
 
 
+def non_flatten_after_func(f):
+  """Registers <f> in the after mapper, and in addition to that,
+  makes it ignore the 'flatten' step."""
+  def func(*args):
+    if len(args) < 2 or args[1] not in ["flatten"]:
+      return f(*args)
+  func.__name__ = f.__name__
+  return is_after_func(func)
+
+
 #### RELU activations
 
-@is_after_func
+@non_flatten_after_func
 def relu(*args):
   return Functional(nn.functional.relu)
 
-@is_after_func
+@non_flatten_after_func
 def sc_relu(*args):
   return Scaler(Centerer(relu()))
 
-@is_after_func
+@non_flatten_after_func
 def zt_relu(*args):
   return Zoomer(Tracker(relu()))
 
 
 #### SGNLOG activations
 
-@is_after_func
+@non_flatten_after_func
 def sgnlog(*args):
   return Functional(sgnlog_func)
 
-@is_after_func
+@non_flatten_after_func
 def sc_sgnlog(*args):
   return Scaler(Centerer(sgnlog()))
 
-@is_after_func
+@non_flatten_after_func
 def zt_sgnlog(*args):
   return Zoomer(Tracker(sgnlog()))
 
-@is_after_func
+@non_flatten_after_func
 def negpos_sgnlog(*args):
   return NegPoser(Zoomer(sgnlog()), Zoomer(sgnlog()))
 
-@is_after_func
+@non_flatten_after_func
 def parameterized_sgnlog(*args):
   return ParameterizedSgnlog()
 
 
 #### TANH activations
 
-@is_after_func
+@non_flatten_after_func
 def tanh(*args):
   return Functional(nn.functional.tanh)
 
-@is_after_func
+@non_flatten_after_func
 def sc_tanh(*args):
   return Scaler(Centerer(tanh()))
 
-@is_after_func
+@non_flatten_after_func
 def zt_tanh(*args):
   return Zoomer(Tracker(tanh()))
 
 
 #### LINSIN activations
 
-@is_after_func
+@non_flatten_after_func
 def linsin2(*args):
   return Functional(linsin2_func)
 
-@is_after_func
+@non_flatten_after_func
 def sc_linsin2(*args):
   return Scaler(Centerer(linsin2()))
 
-@is_after_func
+@non_flatten_after_func
 def zt_linsin2(*args):
   return Zoomer(Tracker(linsin2()))
 
