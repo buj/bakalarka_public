@@ -138,4 +138,4 @@ class ParameterizedSgnlog(MyModule):
     self.p = nn.Parameter(torch.ones(1))
   
   def forward(self, x):
-    return parameterized_sgnlog(x, p)
+    return parameterized_sgnlog(x, self.p)
