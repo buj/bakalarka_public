@@ -88,7 +88,7 @@ class Experiment:
       self.params["name"] = func.__name__
     if "prefix" not in self.params:
       self.params["prefix"] = func.__module__.split('.')[-1]
-    save_params(self.params, [self.prefix, self.name])
+    save_params(self.params, [self.prefix, self.net, self.name])
   
   def __getattr__(self, name):
     """If we have no attribute named <name>, check the self.params dict."""
@@ -104,31 +104,10 @@ class Experiment:
     in the experiment's folder."""
     logging.info("Experiment {}".format(self.name))
     exp_data, model = self.func()
-    names = [self.prefix, self.name, self.net]
+    names = [self.prefix, self.net, self.name]
     append_all(exp_data, names)
     save_model(model, names)
     return model
-
-
-def experiment(f):
-  """
-  Deprecated. Use the class 'Experiment' instead.
-  
-  Wrapper that takes a function <f> and returns a 'proper' version
-  of that function. <f> should take no arguments and return experiment
-  data (a two-layer dict) and the trained model. The returned function
-  will automatically append this data to the prior experiment data
-  and return the model.
-  """
-  def res():
-    logging.info("Experiment {}".format(f.__name__))
-    exp_data, model = f()
-    names = [f.__module__.split('.')[-1], f.__name__]
-    append_all(exp_data, names)
-    save_model(model, names)
-    return model
-  res.__name__ = f.__name__
-  return res
 
 
 def get_plotter(mod_names, td_type, metrics):
@@ -145,7 +124,7 @@ def get_plotter(mod_names, td_type, metrics):
   <metrics>: Which metrics we want the plotter to plot.
   """
   def res(exps, smoothing = 0, **kwargs):
-    exps = [f if type(f) is str else f.name for f in exps]
+    exps = [f.split('.') if type(f) is str else [f.net, f.name] for f in exps]
     for data in td_type:
       for f in metrics:
         plot_arrays(context(txt(mod_names), exps, [data, f.__name__]), smoothing, **kwargs)

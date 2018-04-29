@@ -55,6 +55,25 @@ def plot_arrays(names, smoothing = 0, stretch = False):
     length.
   """
   arrays = load_arrays(names)
+  
+  # Find the common prefix of given experiment's names.
+  common_pref = 0
+  while True:
+    curr = None
+    for name in names:
+      if len(name) <= common_pref:
+        curr = None
+        break
+      subname = name[common_pref]
+      if curr is None:
+        curr = subname
+      if subname != curr:
+        curr = None
+        break
+    if curr is None:
+      break
+    common_pref += 1
+  
   for name, arr in zip(names, arrays):
     if arr.size()[0] == 1:
       arr = torch.cat((arr, arr), dim = 0)
@@ -65,7 +84,7 @@ def plot_arrays(names, smoothing = 0, stretch = False):
     else:
       x = np.arange(arr.size()[0])
     
-    caption = name[1]
+    caption = name[common_pref] if len(name) > common_pref else ""
     plt.plot(x, y, label = caption)
   
   plt.legend()
@@ -115,7 +134,7 @@ def context(left, names, right):
   """Creates a list of locations where each location
   begins with the list <left>, then something, and ends with the
   list <right>, where something comes from the list <names>."""
-  res = [left + [x] + right for x in names]
+  res = [left + x + right if type(x) is list else left + [x] + right for x in names]
   return res
 
 
