@@ -57,7 +57,7 @@ def batch_norm(arch, name):
 #### AFTER FUNCS #######################################################
 
 from .general import ParameterizedSgnlog, Scaler, Zoomer, Centerer, Tracker, NegPoser
-from lib.functional import sgnlog as sgnlog_func, linsin2 as linsin2_func
+from lib.functional import sgnlog as sgnlog_func
 
 
 after_mapper = {}
@@ -135,21 +135,6 @@ def sc_tanh(*args):
 @non_flatten_after_func
 def zt_tanh(*args):
   return Zoomer(Tracker(tanh()))
-
-
-#### LINSIN activations
-
-@non_flatten_after_func
-def linsin2(*args):
-  return Functional(linsin2_func)
-
-@non_flatten_after_func
-def sc_linsin2(*args):
-  return Scaler(Centerer(linsin2()))
-
-@non_flatten_after_func
-def zt_linsin2(*args):
-  return Zoomer(Tracker(linsin2()))
 
 
 #### CREATION OF NET ###################################################

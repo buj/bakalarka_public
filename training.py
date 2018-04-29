@@ -85,6 +85,7 @@ class Trainer:
     tH = {f.__name__ : [] for f in self.metrics}
     vH = {f.__name__ : [] for f in self.metrics}
     best_val = None
+    best_model_state = None
     patience = self.early_stopping
     
     opt = self.optimizer(self.model.parameters(), **self.opt_kwargs)
@@ -140,11 +141,15 @@ class Trainer:
       curr_val = meter[self.metrics[0].__name__]
       if best_val is None or curr_val < best_val:
         best_val = curr_val
+        best_model_state = self.model.state_dict()
         patience = self.early_stopping
       else:
         patience -= 1
         if patience <= 0:
           logging.info("Patience run out, stopping early. Best validation error was %.9f", best_val)
           break
+    
+    # At the end of it all, load the best model (validation_error-wise).
+    self.model.load_state_dict(best_model_state)
     
     return {"train": tH, "val": vH}
