@@ -40,6 +40,7 @@ def load_arrays(names):
       arr = torch.load(path)
     except IOError:
       logging.info("While loading arrays: file %s can't be read from (does it exist?), skipping", path)
+      res.append(None)
       continue
     res.append(torch.mean(arr, dim = 0))
   return res
@@ -75,6 +76,8 @@ def plot_arrays(names, smoothing = 0, stretch = False):
     common_pref += 1
   
   for name, arr in zip(names, arrays):
+    if arr is None:
+      continue
     if arr.size()[0] == 1:
       arr = torch.cat((arr, arr), dim = 0)
     

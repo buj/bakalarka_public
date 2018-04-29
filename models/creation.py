@@ -92,11 +92,11 @@ def relu(*args):
 
 @non_flatten_after_func
 def sc_relu(*args):
-  return Scaler(Centerer(relu()))
+  return Scaler(Centerer(relu()), outs = False)
 
 @non_flatten_after_func
-def zt_relu(*args):
-  return Zoomer(Tracker(relu()))
+def t_relu(*args):
+  return Tracker(relu())
 
 
 #### SGNLOG activations
