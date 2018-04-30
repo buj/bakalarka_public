@@ -169,6 +169,9 @@ def p_sgnlog(arch, name):
 
 #### CREATION OF NET ###################################################
 
+from .general import scaler_grad
+
+
 net_mapper = {}
 
 def str_to_net(f):
@@ -254,16 +257,24 @@ class NetDescription:
     return nn.Sequential(OrderedDict(pipeline))
 
 
-def init_weights(gain, weight_norm = False):
+def init_weights(gain, weight_norm = False, prop_grad = False):
   """Returns a function, that initializes our net's parameters
   recursively, using a variant of the xavier initialization with the
   given gain <gain>."""
   def func(module):
     if type(module) in [nn.Linear, nn.Conv2d]:
       nn.init.xavier_normal_(module.weight, gain)
+      
       if weight_norm:
+        # Decouple the weight's size from its direction.
         nn.utils.weight_norm(module)
+      
+      elif prop_grad:
+        # Make weights change proportionally to their size if desired.
+        module.weight.register_hook(scaler_grad(module.weight))
+      
       if module.bias is not None:
         with torch.no_grad():
           module.bias.fill_(0)
+  
   return func

@@ -31,7 +31,7 @@ def gen(
   lr, net = "convnet1",
   norm1_func = None, act_func = "relu", norm2_func = None,
   gain = nn.init.calculate_gain("relu"),
-  weight_norm = False,
+  weight_norm = False, prop_grad = False,
   parallel = False,
   name = "temp", **kwargs
 ):
@@ -48,7 +48,7 @@ def gen(
   
   def func():
     model = net(norm1_func, act_func, norm2_func)
-    model.apply(init_weights(gain, weight_norm))
+    model.apply(init_weights(gain, weight_norm, prop_grad))
     if parallel:
       model = torch.nn.DataParallel(model)
     trainer.set(model = model, lr = lr, **kwargs)

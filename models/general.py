@@ -34,7 +34,7 @@ class Functional(MyModule):
 
 #### ELEMENTWISE NORMALIZATIONS ########################################
 
-def scaler_grad(param, eps):
+def scaler_grad(param, eps = 10**-6):
   """Returns a hook that adjusts the gradient with respect to <param>.
   Used by the Scaler and ElementwiseScaler module."""
   def hook(grad):
