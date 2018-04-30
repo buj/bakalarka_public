@@ -141,6 +141,12 @@ def context(left, names, right):
   return res
 
 
+def exps(net, names):
+  """Given a net and a list of experiment names, returns a list of whole names
+  (that include the prefix '<net>.')"""
+  return ["{}.{}".format(net, x) for x in names]
+
+
 #### LOADING STORED STUFF ##############################################
 
 def save_model(model, names):

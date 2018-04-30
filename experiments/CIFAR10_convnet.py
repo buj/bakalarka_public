@@ -23,31 +23,30 @@ trainer = Trainer(train_data, val_data, criterion, metrics, 512, torch.optim.SGD
 
 #### RELU with NOTHING #################################################
 
-from lib.models.creation import norm_mapper, after_mapper, net_mapper, init_weights
+from lib.models.creation import str_to_norm, str_to_act, str_to_net, init_weights
 import lib.models.architectures
 
 
 def gen(
-  lr, net = "convnet1", after_func = "relu", norm_func = None,
+  lr, net = "convnet1",
+  norm1_func = None, act_func = "relu", norm2_func = None,
   gain = nn.init.calculate_gain("relu"),
   weight_norm = False,
   parallel = False,
   name = "temp", **kwargs
 ):
   """Generates an experiment. The activation function is determined by
-  <after_func>. Use of normalization is determined by <norm_func>."""
+  <act_func>. Use of normalization is determined by <norm_func>."""
   params = locals()
   
   # Translate from english names to python objects.
-  if type(net) is str:
-    net = net_mapper[net]
-  if type(after_func) is str:
-    after_func = after_mapper.get(after_func, None)
-  if type(norm_func) is str:
-    norm_func = norm_mapper.get(norm_func, None)
+  net = str_to_net(net)
+  norm1_func = str_to_norm(norm1_func)
+  act_func = str_to_act(act_func)
+  norm2_func = str_to_norm(norm2_func)
   
   def func():
-    model = net(after_func, norm_func)
+    model = net(norm1_func, act_func, norm2_func)
     model.apply(init_weights(gain, weight_norm))
     if parallel:
       model = torch.nn.DataParallel(model)

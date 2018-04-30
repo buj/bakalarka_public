@@ -12,6 +12,13 @@ import logging
 
 norm_mapper = {}
 
+def str_to_norm(f):
+  """If <f> is a string, return the corresponding entry from norm_mapper.
+  Otherwise, assume <f> is a normalization_function itself."""
+  if type(f) == str:
+    f = norm_mapper.get(f, None)
+  return f
+
 
 def is_norm_func(f):
   """Registers <f> in the norm_mapper."""
@@ -54,92 +61,67 @@ def batch_norm(arch, name):
       return nn.BatchNorm1d(c)
 
 
-#### AFTER FUNCS #######################################################
+#### ACT FUNCS #######################################################
 
-from .general import ParameterizedSgnlog, Scaler, Zoomer, Centerer, Tracker, NegPoser
 from lib.functional import sgnlog as sgnlog_func
 
 
-after_mapper = {}
+act_mapper = {}
 
-
-def is_after_func(f):
-  """Registers <f> in the after_mapper."""
-  name = f.__name__
-  global after_mapper
-  if name in after_mapper:
-    logging.info("Already have a function named %s in after_mapper! Aborting", name)
-  else:
-    after_mapper[name] = f
+def str_to_act(f):
+  """If <f> is a string, return the corresponding entry from act_mapper.
+  Otherwise, assume <f> is an activation_function itself."""
+  if type(f) == str:
+    f = act_mapper.get(f, None)
   return f
 
 
-def non_flatten_after_func(f):
+def is_act_func(f):
+  """Registers <f> in the act_mapper."""
+  name = f.__name__
+  global act_mapper
+  if name in act_mapper:
+    logging.info("Already have a function named %s in act_mapper! Aborting", name)
+  else:
+    act_mapper[name] = f
+  return f
+
+
+def non_flatten_act_func(f):
   """Registers <f> in the after mapper, and in addition to that,
   makes it ignore the 'flatten' step."""
   def func(*args):
     if len(args) < 2 or args[1] not in ["flatten"]:
       return f(*args)
   func.__name__ = f.__name__
-  return is_after_func(func)
+  return is_act_func(func)
 
 
-#### RELU activations
-
-@non_flatten_after_func
+@non_flatten_act_func
 def relu(*args):
   return Functional(nn.functional.relu)
 
-@non_flatten_after_func
-def sc_relu(*args):
-  return Scaler(Centerer(relu()), outs = False)
 
-@non_flatten_after_func
-def t_relu(*args):
-  return Tracker(relu())
-
-
-#### SGNLOG activations
-
-@non_flatten_after_func
+@non_flatten_act_func
 def sgnlog(*args):
   return Functional(sgnlog_func)
 
-@non_flatten_after_func
-def sc_sgnlog(*args):
-  return Scaler(Centerer(sgnlog()))
 
-@non_flatten_after_func
-def zt_sgnlog(*args):
-  return Zoomer(Tracker(sgnlog()))
-
-@non_flatten_after_func
-def negpos_sgnlog(*args):
-  return NegPoser(Zoomer(sgnlog()), Zoomer(sgnlog()))
-
-@non_flatten_after_func
-def parameterized_sgnlog(*args):
-  return ParameterizedSgnlog()
-
-
-#### TANH activations
-
-@non_flatten_after_func
+@non_flatten_act_func
 def tanh(*args):
   return Functional(nn.functional.tanh)
-
-@non_flatten_after_func
-def sc_tanh(*args):
-  return Scaler(Centerer(tanh()))
-
-@non_flatten_after_func
-def zt_tanh(*args):
-  return Zoomer(Tracker(tanh()))
 
 
 #### CREATION OF NET ###################################################
 
 net_mapper = {}
+
+def str_to_net(f):
+  """If <f> is a string, return the corresponding entry from net_mapper.
+  Otherwise, assume <f> is a net itself."""
+  if type(f) == str:
+    f = net_mapper[f]
+  return f
 
 
 def step(arch, name):
@@ -183,7 +165,7 @@ class NetDescription:
     self.kwargs = kwargs
     self.sizes = sizes
   
-  def __call__(self, after_func = None, norm_func = None):
+  def __call__(self, norm1_func = None, act_func = None, norm2_func = None):
     """Returns a constructed net."""
     pipeline = []
     for name in self.names:
@@ -191,21 +173,25 @@ class NetDescription:
       if mod0:
         pipeline.append((name, mod0))
       
-      if norm_func:
-        # Do not use norm_func after the last step.
-        if name in self.next_names:
-          name1 = "norm_{}".format(name)
-          mod1 = norm_func(self, name)
+      # Do not use normalizations after the last step.
+      if name in self.next_names:
+        if norm_func1:
+          name1 = "norm1_{}".format(name)
+          mod1 = norm1_func(self, name)
           if mod1:
             pipeline.append((name1, mod1))
-      
-      if after_func:
-        # Do not use activation in the last layer.
-        if name in self.next_names:
-          name2 = "after_{}".format(name)
-          mod2 = after_func(self, name)
+        
+        if act_func:
+          name2 = "act_{}".format(name)
+          mod2 = act_func(self, name)
           if mod2:
             pipeline.append((name2, mod2))
+        
+        if norm_func3:
+          name3 = "norm2_{}".format(name)
+          mod3 = norm2_func(self, name)
+          if mod3:
+            pipeline.append((name3, mod3))
     
     return nn.Sequential(OrderedDict(pipeline))
 
