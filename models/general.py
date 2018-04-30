@@ -32,15 +32,89 @@ class Functional(MyModule):
     return self.func(x)
 
 
-#### GENERAL PAREMETERIZED ACTIVATIONS #################################
+#### ELEMENTWISE NORMALIZATIONS ########################################
 
 def scaler_grad(param, eps):
   """Returns a hook that adjusts the gradient with respect to <param>.
-  Used by the Scaler module."""
+  Used by the Scaler and ElementwiseScaler module."""
   def hook(grad):
     with torch.no_grad():
       return grad * (eps**2 + param**2)**0.5
   return hook
+
+
+class ElementwiseScaler(MyModule):
+  """Scales the input, each element has its owen scaling factor (as
+  opposed to a global scaling factor)."""
+  
+  def __init__(self, in_size, eps = 10**-6):
+    """<in_size> is the size of the input."""
+    super().__init__()
+    self.weight = nn.Parameter(torch.ones(*in_size))
+    if eps is not None:
+      self.eps = eps
+      self.weight.register_hook(scaler_grad(self.weight, self.eps))
+  
+  def forward(self, x):
+    return x * self.weight
+
+
+def elem_scaler_grad(param):
+  """Returns a hook that adjusts the gradient with respect to <param>.
+  Used by the ElementwiseScaler module."""
+  def hook(grad):
+    with torch.no_grad():
+      return grad * torch.exp(-param)
+  return hook
+
+
+class PositiveElementwiseScaler(MyModule):
+  """Scales the input, each element has its own positive scaling factor
+  (as opposed to a global scaling factor)."""
+  
+  def __init__(self, in_size, eps = 10**-6):
+    """<in_size> is the size of the input."""
+    super().__init__()
+    self.weight = nn.Parameter(torch.zeros(*in_size))
+    if eps is not None:
+      self.eps = eps
+      self.weight.register_hook(elem_scaler_grad(self.weight))
+  
+  def forward(self, x):
+    return x * torch.exp(self.weight)
+
+
+class ElementwiseShifter(MyModule):
+  """Shifts the input, each element has its own bias (as opposed to
+  a global bias)."""
+  
+  def __init__(self, in_size):
+    """<in_size> is the size of the input."""
+    super().__init__()
+    self.weight = nn.Parameter(torch.zeros(*in_size))
+  
+  def forward(self, x):
+    return x + self.weight
+
+
+class NegPoser(MyModule):
+  """Wraps two modules. The first determines the behaviour
+  on negative values, the second determines the behaviour on
+  positive values. For zero, returns the average of the two."""
+  
+  def __init__(self, sub1, sub2):
+    super().__init__()
+    self.sub1 = sub1
+    self.sub2 = sub2
+  
+  def forward(self, x):
+    neg = self.sub1(x)
+    pos = self.sub2(x)
+    sgn = torch.sign(x)
+    return (1+sgn)/2 * pos + (1-sgn)/2 * neg
+
+
+#### ACTIVATION FUNCTION WARPERS #######################################
 
 class Scaler(MyModule):
   """Can wrap an activation function. Enables scaling of both the input
@@ -107,23 +181,6 @@ class Tracker(MyModule):
     return self.sub(x + self.b) - self.sub(self.b)
 
 
-class NegPoser(MyModule):
-  """Wraps two activation functions. The first determines the behaviour
-  on negative values, the second determines the behaviour on
-  positive values. For zero, returns the average of the two."""
-  
-  def __init__(self, sub1, sub2):
-    super().__init__()
-    self.sub1 = sub1
-    self.sub2 = sub2
-  
-  def forward(self, x):
-    neg = self.sub1(x)
-    pos = self.sub2(x)
-    sgn = torch.sign(x)
-    return (1+sgn)/2 * pos + (1-sgn)/2 * neg
-
-
 #### SPECIFIC PARAMETERIZED FUNCTIONS ##################################
 
 from lib.functional import parameterized_sgnlog
@@ -132,10 +189,11 @@ from lib.functional import parameterized_sgnlog
 class ParameterizedSgnlog(MyModule):
   """Implements the parameterized sgnlog."""
   
-  def __init__(self):
+  def __init__(self, in_size):
+    """<in_size> is the size of the input, the number of nodes. Each
+    node has its own parameter."""
     super().__init__()
-    # Start as a linear function.
-    self.p = nn.Parameter(torch.ones(1))
+    self.p = nn.Parameter(torch.ones(in_size))
   
   def forward(self, x):
     return parameterized_sgnlog(x, self.p)

@@ -10,6 +10,9 @@ import logging
 
 #### NORM FUNCS ########################################################
 
+from .general import ElementwiseScaler, PositiveElementwiseScaler, ElementwiseShifter, NegPoser
+
+
 norm_mapper = {}
 
 def str_to_norm(f):
@@ -41,29 +44,75 @@ def non_flatten_norm_func(f):
   return is_norm_func(func)
 
 
+#### LAYER NORMS
+
 @non_flatten_norm_func
 def layer_norm(arch, name):
   """Returns a layer normalization module that can be applied right
   after step <name>."""
-  if name not in ["flatten"]:
-    return nn.LayerNorm(arch.sizes[name])
+  return nn.LayerNorm(arch.sizes[name])
 
+
+#### ELEMENTWISE NORMS
 
 @non_flatten_norm_func
 def batch_norm(arch, name):
   """Returns a batch normalization module that can be applied right
   after step <name>."""
-  if name not in ["flatten"]:
-    c = arch.sizes[name][0]
-    if name[:4] == "conv":
-      return nn.BatchNorm2d(c)
-    elif name[:5] == "dense":
-      return nn.BatchNorm1d(c)
+  c = arch.sizes[name][0]
+  if name[:4] == "conv":
+    return nn.BatchNorm2d(c)
+  elif name[:5] == "dense":
+    return nn.BatchNorm1d(c)
+
+
+@non_flatten_norm_func
+def elem_scale(arch, name):
+  """Returns an elemntwise scaler module that can be applied right
+  after step <name>."""
+  c = arch.sizes[name]
+  return ElementwiseScaler(c)
+
+
+@non_flatten_norm_func
+def pos_elem_scale(arch, name):
+  """Returns a positive elementwise scaler module that can be applied
+  right after step <name>."""
+  c = arch.sizes[name]
+  return PositiveElementwiseScaler(c)
+
+
+@non_flatten_norm_func
+def imp_norm(arch, name):
+  """Returns the implicit normalization module that can be applied
+  right after step <name>."""
+  c = arch.sizes[name]
+  return nn.Sequential(ElementwiseShifter(c), ElementwiseScaler(c))
+
+
+@non_flatten_norm_func
+def np_elem_scale(arch, name):
+  """Returns the negpos'd elementwise scaler module. It has separate
+  scaling factors for positive and negative values. Can be applied
+  right after ste <name>."""
+  c = arch.sizes[name]
+  return NegPoser(ElementwiseScaler(c), ElementwiseScaler(c))
+
+
+@non_flatten_norm_func
+def np_imp_norm(arch, name):
+  """Returns the negpos'd implicit normalization module that can be
+  applied right after step <name>. It has separate scaling factors for
+  positive and negative values."""
+  c = arch.sizes[name]
+  np_scaler = NegPoser(ElementwiseScaler(c), ElementwiseScaler(c))
+  return nn.Sequential(ElementwiseShifter(c), np_scaler)
 
 
 #### ACT FUNCS #######################################################
 
 from lib.functional import sgnlog as sgnlog_func
+from .general import ParameterizedSgnlog
 
 
 act_mapper = {}
@@ -110,6 +159,12 @@ def sgnlog(*args):
 @non_flatten_act_func
 def tanh(*args):
   return Functional(nn.functional.tanh)
+
+
+@non_flatten_act_func
+def p_sgnlog(arch, name):
+  c = arch.sizes[name]
+  return ParameterizedSgnlog(c)
 
 
 #### CREATION OF NET ###################################################
@@ -175,19 +230,22 @@ class NetDescription:
       
       # Do not use normalizations after the last step.
       if name in self.next_names:
-        if norm_func1:
-          name1 = "norm1_{}".format(name)
-          mod1 = norm1_func(self, name)
-          if mod1:
-            pipeline.append((name1, mod1))
         
-        if act_func:
-          name2 = "act_{}".format(name)
-          mod2 = act_func(self, name)
-          if mod2:
-            pipeline.append((name2, mod2))
+        # If at start, skip norm1 and activation.
+        if name != "start":
+          if norm1_func:
+            name1 = "norm1_{}".format(name)
+            mod1 = norm1_func(self, name)
+            if mod1:
+              pipeline.append((name1, mod1))
+          
+          if act_func:
+            name2 = "act_{}".format(name)
+            mod2 = act_func(self, name)
+            if mod2:
+              pipeline.append((name2, mod2))
         
-        if norm_func3:
+        if norm2_func:
           name3 = "norm2_{}".format(name)
           mod3 = norm2_func(self, name)
           if mod3:

@@ -36,7 +36,8 @@ def gen(
   name = "temp", **kwargs
 ):
   """Generates an experiment. The activation function is determined by
-  <act_func>. Use of normalization is determined by <norm_func>."""
+  <act_func>. Use of normalization is determined by <norm1_func>
+  (before activation) and <norm2_func> (after activation)."""
   params = locals()
   
   # Translate from english names to python objects.
