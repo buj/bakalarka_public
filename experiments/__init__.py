@@ -25,6 +25,8 @@ Conventions:
 dir_path = os.path.dirname(__file__)
 
 
+#### ARRAY MANIPULATION ################################################
+
 def append(array, location):
   """Appends <array> to the array stored in <location>. More precisely,
   the arrays are concatenated along the zeroth dimension."""
@@ -54,6 +56,8 @@ def append_all(vals, exp_names):
     for name2, x in sub.items():
       append(torch.Tensor(x), exp_names + [name1, name2])
 
+
+#### EXPERIMENT STRUCTURE ##############################################
 
 def save_params(params, exp_names):
   """Saves experiment parameters into experiment folder for later use."""
@@ -110,8 +114,25 @@ class Experiment:
     return model
 
 
+#### PLOTTING UTILS ####################################################
+
+"""Current working directory. Is appended after the module name prefix."""
+prefix = []
+suffix = []
+
+
+def plot_exps(exps, smoothing = 0, prefix = prefix, suffix = suffix, **kwargs):
+  """Plots the given experiments. Prepends their names with the
+  current working directory 'prefix', and after that come suffixes from
+  'suffix'."""
+  plot_arrays(context(prefix, exps, suffix), smoothing, **kwargs)
+
+
 def get_plotter(mod_names, td_type, metrics):
-  """Returns a plotting function that takes two arguments:
+  """
+  Deprecated, no guarantees it works anymore. Use 'plot_exps' instead.
+  
+  Returns a plotting function that takes two arguments:
   <exps>: the experiments functions to be plotted.
   <smoothing>: how much emphasis should the plotter place on prior
     values. Default is 0.
@@ -127,19 +148,25 @@ def get_plotter(mod_names, td_type, metrics):
     exps = [f.split('.') if type(f) is str else [f.net, f.name] for f in exps]
     for data in td_type:
       for f in metrics:
-        plot_arrays(context(txt(mod_names), exps, [data, f.__name__]), smoothing, **kwargs)
+        plot_arrays(context(txt(mod_names) + cwd, exps, [data, f.__name__]), smoothing, **kwargs)
   return res
 
 
 #### EXPERIMENT GENERATION #############################################
 
+from torch import nn
+
+from lib.functional import cross_entropy, accuracy
 from lib.models.creation import str_to_step, str_to_norm, str_to_act, str_to_net, init_weights
 from lib.training import Trainer
 
 
-def gen_gen(train_data, val_data):
+def gen_gen(
+  train_data, val_data,
+  criterion = nn.CrossEntropyLoss(), metrics = [cross_entropy, accuracy]
+):
   """Returns a function that generates experiments on the given data."""
-  trainer = Trainer(train_data, val_data, criterion, metrics, 512, torch.optim.SGD, num_epochs = 12)
+  trainer = Trainer(train_data, val_data, criterion, metrics, 512, torch.optim.SGD, num_epochs = 60)
   
   def gen(
     lr, net = "convnet1",

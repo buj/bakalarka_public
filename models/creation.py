@@ -307,8 +307,8 @@ class NetDescription:
     self.sizes = sizes
   
   def __call__(
-    self, step_func = step, norm1_func = None,
-    act_func = None, norm2_func = None
+    self, norm1_func = None, act_func = None, norm2_func = None,
+    step_func = step
   ):
     """Returns a constructed net."""
     pipeline = []
