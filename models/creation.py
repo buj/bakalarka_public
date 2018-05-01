@@ -73,6 +73,14 @@ def elem_scale(arch, name):
   c = arch.sizes[name]
   return ElementwiseScaler(c)
 
+@non_flatten_norm_func
+def elem_scale2(arch, name):
+  """Returns an elemntwise scaler module that can be applied right
+  after step <name>. Does NOT scale the gradient proportionally to the
+  size of the parameter."""
+  c = arch.sizes[name]
+  return ElementwiseScaler(c, None)
+
 
 @non_flatten_norm_func
 def pos_elem_scale(arch, name):
@@ -89,6 +97,14 @@ def imp_norm(arch, name):
   c = arch.sizes[name]
   return nn.Sequential(ElementwiseShifter(c), ElementwiseScaler(c))
 
+@non_flatten_norm_func
+def imp_norm2(arch, name):
+  """Returns the implicit normalization module that can be applied
+  right after step <name>. Does NOT scale the gradient proportionally
+  to the size of the parameter."""
+  c = arch.sizes[name]
+  return nn.Sequential(ElementwiseShifter(c), ElementwiseScaler(c, None))
+
 
 @non_flatten_norm_func
 def np_elem_scale(arch, name):
@@ -98,6 +114,14 @@ def np_elem_scale(arch, name):
   c = arch.sizes[name]
   return NegPoser(ElementwiseScaler(c), ElementwiseScaler(c))
 
+@non_flatten_norm_func
+def np_elem_scale2(arch, name):
+  """Returns the negpos'd elementwise scaler module. It has separate
+  scaling factors for positive and negative values. Can be applied
+  right after ste <name>."""
+  c = arch.sizes[name]
+  return NegPoser(ElementwiseScaler(c, None), ElementwiseScaler(c, None))
+
 
 @non_flatten_norm_func
 def np_imp_norm(arch, name):
@@ -106,6 +130,16 @@ def np_imp_norm(arch, name):
   positive and negative values."""
   c = arch.sizes[name]
   np_scaler = NegPoser(ElementwiseScaler(c), ElementwiseScaler(c))
+  return nn.Sequential(ElementwiseShifter(c), np_scaler)
+
+@non_flatten_norm_func
+def np_imp_norm2(arch, name):
+  """Returns the negpos'd implicit normalization module that can be
+  applied right after step <name>. It has separate scaling factors for
+  positive and negative values. Does NOT scale the gradient
+  proportionally to the size of the parameter."""
+  c = arch.sizes[name]
+  np_scaler = NegPoser(ElementwiseScaler(c, None), ElementwiseScaler(c, None))
   return nn.Sequential(ElementwiseShifter(c), np_scaler)
 
 
@@ -257,7 +291,7 @@ class NetDescription:
     return nn.Sequential(OrderedDict(pipeline))
 
 
-def init_weights(gain, weight_norm = False, prop_grad = False):
+def init_weights(gain, weight_norm = False, prop_grad = None):
   """Returns a function, that initializes our net's parameters
   recursively, using a variant of the xavier initialization with the
   given gain <gain>."""
@@ -271,7 +305,7 @@ def init_weights(gain, weight_norm = False, prop_grad = False):
       
       elif prop_grad:
         # Make weights change proportionally to their size if desired.
-        module.weight.register_hook(scaler_grad(module.weight))
+        module.weight.register_hook(scaler_grad(module.weight, prop_grad))
       
       if module.bias is not None:
         with torch.no_grad():

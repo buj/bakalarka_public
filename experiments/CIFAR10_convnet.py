@@ -31,7 +31,7 @@ def gen(
   lr, net = "convnet1",
   norm1_func = None, act_func = "relu", norm2_func = None,
   gain = nn.init.calculate_gain("relu"),
-  weight_norm = False, prop_grad = False,
+  weight_norm = False, prop_grad = None,
   parallel = False,
   name = "temp", **kwargs
 ):
