@@ -305,7 +305,10 @@ def init_weights(gain, weight_norm = False, prop_grad = None):
       
       elif prop_grad:
         # Make weights change proportionally to their size if desired.
-        module.weight.register_hook(scaler_grad(module.weight, prop_grad))
+        if prop_grad is True:
+          module.weight.register_hook(scaler_grad(module.weight))
+        else:
+          module.weight.register_hook(scaler_grad(module.weight, prop_grad))
       
       if module.bias is not None:
         with torch.no_grad():

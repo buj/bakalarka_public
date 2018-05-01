@@ -13,26 +13,24 @@ def sgnlog(x):
 
 def parameterized_sgnlog(x, p):
   """Elementwise parameterized sgnlog, where <p> is the parameter."""
-  y = x.new_empty(x.shape, requires_grad = True)
-  
   # Case 1: p == 0
-  case1 = (p == 0)
-  x1 = x[case1]
-  y[case1] = sgnlog(x1)
+  case1 = (p == 0).to(dtype = x.dtype)
+  x1 = x * case1
+  y1 = sgnlog(x1)
   
   # Case2: p != 0 and p <= 1  
-  case2 = (p <= 1) * (p != 0)
-  x2 = x[case2]
-  p2 = p[case2]
-  y[case2] = torch.sign(x2) * ((1 + torch.abs(x2))**p2 - 1) / p2
+  case2 = ((p <= 1) * (p != 0)).to(dtype = x.dtype)
+  x2 = x * case2
+  p2 = p * case2 + (1 - case2)
+  y2 = torch.sign(x2) * ((1 + torch.abs(x2))**p2 - 1) / p2
   
   # Case 3: p > 1  
-  case3 = (p > 1)
-  x3 = x[case3]
-  p3 = p[case3]
-  y[case3] = torch.sign(x3) * ((1 + torch.abs(x3)/p3) ** p3 - 1)
+  case3 = (p > 1).to(dtype = x.dtype)
+  x3 = x * case3
+  p3 = p * case3 + (1 - case3)
+  y3 = torch.sign(x3) * ((1 + torch.abs(x3)/p3) ** p3 - 1)
   
-  return y
+  return y1 + y2 + y3
 
 
 #### UTILS #############################################################
