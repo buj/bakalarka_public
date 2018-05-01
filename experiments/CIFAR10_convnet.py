@@ -6,6 +6,8 @@ from lib.training import Trainer
 from lib.experiments import Experiment, get_plotter
 from lib.functional import cross_entropy, accuracy
 
+import logging
+
 
 #### BOILERPLATE #######################################################
 
@@ -48,6 +50,7 @@ def gen(
   
   def func():
     model = net(norm1_func, act_func, norm2_func)
+    logging.info("Model info:\n%s", model)
     model.apply(init_weights(gain, weight_norm, prop_grad))
     if parallel:
       model = torch.nn.DataParallel(model)

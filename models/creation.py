@@ -150,7 +150,7 @@ def np_imp_norm2(arch, name):
 #### ACT FUNCS #######################################################
 
 from lib.functional import sgnlog as sgnlog_func
-from .general import ParameterizedSgnlog, Zoomer, Tracker
+from .general import ParameterizedSgnlog, Zoomer, Tracker, NegPoser
 
 
 act_mapper = {}
@@ -195,9 +195,15 @@ def sgnlog(*args):
   return Functional(sgnlog_func)
 
 @non_flatten_act_func
-def zt_sgnlog(arch, name):
+def ez_et_sgnlog(arch, name):
   c = arch.sizes[name]
   return Zoomer(Tracker(sgnlog(), c), c)
+
+@non_flatten_act_func
+def np_ez_sgnlog(arch, name):
+  c = arch.sizes[name]
+  f = sgnlog()
+  return NegPoser(Zoomer(f, c), Zoomer(f, c))
 
 
 
