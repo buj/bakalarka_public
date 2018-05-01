@@ -118,7 +118,10 @@ class NegPoser(MyModule):
 
 class Scaler(MyModule):
   """Can wrap an activation function. Enables scaling of both the input
-  and the output."""
+  and the output.
+  
+  Is applied layerwise, that is, it has one parameter for an entire
+  layer. It can thus be seen as a form of layer normalization."""
   
   def __init__(self, sub, eps = 10**-6, ins = True, outs = True):
     """<sub> is the underlying activation that is to be scaled. <eps>
@@ -143,12 +146,17 @@ class Scaler(MyModule):
 class Zoomer(MyModule):
   """Can wrap an activation function. Enables scaling of both the input
   and the output. The scalings are inverse, and the result is a 'zoom-in'
-  or 'zoom-out' of the activation function."""
+  or 'zoom-out' of the activation function.
   
-  def __init__(self, sub):
+  By default, is applied layerwise, that is, it has one parameter for
+  an entire layer. It can thus be seen as a form of layer normalization."""
+  
+  def __init__(self, sub, in_size = (1,)):
+    """If <in_size> is not provided, one parameter is used for the
+    entire layer."""
     super().__init__()
     self.sub = sub
-    self.k = nn.Parameter(torch.zeros(1))
+    self.k = nn.Parameter(torch.zeros(*in_size))
   
   def forward(self, x):
     return torch.exp(-self.k) * self.sub(x * torch.exp(self.k))
@@ -156,7 +164,10 @@ class Zoomer(MyModule):
 
 class Centerer(MyModule):
   """Can wrap an activation function. Enables centering of both the input
-  and the output."""
+  and the output.
+  
+  Is applied layerwise, that is, it has one parameter for an entire
+  layer. It can thus be seen as a form of layer normalization."""
   
   def __init__(self, sub, ins = True, outs = True):
     super().__init__()
@@ -170,18 +181,23 @@ class Centerer(MyModule):
 
 class Tracker(MyModule):
   """Can wrap an activation function. Enables centering of both the input
-  and the output. The adjustments are inverse with respect to each other."""
+  and the output. The adjustments are inverse with respect to each other.
   
-  def __init__(self, sub):
+  By default, is applied layerwise, that is, it has one parameter for
+  an entire layer. It can thus be seen as a form of layer normalization."""
+  
+  def __init__(self, sub, in_size = (1,)):
+    """If <in_size> is not provided, one parameter is used for the
+    entire layer."""
     super().__init__()
     self.sub = sub
-    self.b = nn.Parameter(torch.zeros(1))
+    self.b = nn.Parameter(torch.zeros(*in_size))
   
   def forward(self, x):
     return self.sub(x + self.b) - self.sub(self.b)
 
 
-#### SPECIFIC PARAMETERIZED FUNCTIONS ##################################
+#### SPECIFIC PARAMETERIZED ACTIVATIONS ################################
 
 from lib.functional import parameterized_sgnlog
 

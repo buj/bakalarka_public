@@ -66,6 +66,7 @@ def batch_norm(arch, name):
     return nn.BatchNorm1d(c)
 
 
+
 @non_flatten_norm_func
 def elem_scale(arch, name):
   """Returns an elemntwise scaler module that can be applied right
@@ -80,6 +81,7 @@ def elem_scale2(arch, name):
   size of the parameter."""
   c = arch.sizes[name]
   return ElementwiseScaler(c, None)
+
 
 
 @non_flatten_norm_func
@@ -106,6 +108,7 @@ def imp_norm2(arch, name):
   return nn.Sequential(ElementwiseShifter(c), ElementwiseScaler(c, None))
 
 
+
 @non_flatten_norm_func
 def np_elem_scale(arch, name):
   """Returns the negpos'd elementwise scaler module. It has separate
@@ -121,6 +124,7 @@ def np_elem_scale2(arch, name):
   right after ste <name>."""
   c = arch.sizes[name]
   return NegPoser(ElementwiseScaler(c, None), ElementwiseScaler(c, None))
+
 
 
 @non_flatten_norm_func
@@ -146,7 +150,7 @@ def np_imp_norm2(arch, name):
 #### ACT FUNCS #######################################################
 
 from lib.functional import sgnlog as sgnlog_func
-from .general import ParameterizedSgnlog
+from .general import ParameterizedSgnlog, Zoomer, Tracker
 
 
 act_mapper = {}
@@ -185,14 +189,22 @@ def relu(*args):
   return Functional(nn.functional.relu)
 
 
+
 @non_flatten_act_func
 def sgnlog(*args):
   return Functional(sgnlog_func)
+
+@non_flatten_act_func
+def zt_sgnlog(arch, name):
+  c = arch.sizes[name]
+  return Zoomer(Tracker(sgnlog(), c), c)
+
 
 
 @non_flatten_act_func
 def tanh(*args):
   return Functional(nn.functional.tanh)
+
 
 
 @non_flatten_act_func
