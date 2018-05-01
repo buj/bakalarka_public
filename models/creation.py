@@ -3,6 +3,7 @@ from torch import nn
 
 from .general import MyModule, Functional
 
+import random
 from collections import OrderedDict
 
 import logging
@@ -205,6 +206,12 @@ def np_ez_sgnlog(arch, name):
   f = sgnlog()
   return NegPoser(Zoomer(f, c), Zoomer(f, c))
 
+@non_flatten_act_func
+def np_ez_et_sgnlog(arch, name):
+  c = arch.sizes[name]
+  f = Tracker(sgnlog(), c)
+  return NegPoser(Zoomer(f, c), Zoomer(f, c))
+
 
 
 @non_flatten_act_func
@@ -217,6 +224,40 @@ def tanh(*args):
 def p_sgnlog(arch, name):
   c = arch.sizes[name]
   return ParameterizedSgnlog(c)
+
+
+#### STEP FUNCS ########################################################
+
+step_mapper = {}
+
+def str_to_step(f):
+  """If <f> is a string, return the corresponding entry from step_mapper.
+  Otherwise, assume <f> is a step_func itself."""
+  if type(f) == str:
+    f = step_mapper[f]
+  return f
+
+
+def is_step_func(f):
+  """Registers <f> in the step_mapper."""
+  name = f.__name__
+  global step_mapper
+  if name in step_mapper:
+    logging.info("Already have a function named %s in step_mapper! Aborting", name)
+  else:
+    step_mapper[name] = f
+  return f
+
+
+@is_step_func
+def step(arch, name):
+  """Returns the module that should be added to our net in step
+  named 'name'."""
+  if name not in arch.table:
+    return None
+  args = arch.args.get(name, [])
+  kwargs = arch.kwargs.get(name, {})
+  return arch.table[name](*args, **kwargs)
 
 
 #### CREATION OF NET ###################################################
@@ -232,16 +273,6 @@ def str_to_net(f):
   if type(f) == str:
     f = net_mapper[f]
   return f
-
-
-def step(arch, name):
-  """Returns the module that should be added to our net in step
-  named 'name'."""
-  if name not in arch.table:
-    return None
-  args = arch.args.get(name, [])
-  kwargs = arch.kwargs.get(name, {})
-  return arch.table[name](*args, **kwargs)
 
 
 class NetDescription:
@@ -275,11 +306,14 @@ class NetDescription:
     self.kwargs = kwargs
     self.sizes = sizes
   
-  def __call__(self, norm1_func = None, act_func = None, norm2_func = None):
+  def __call__(
+    self, step_func = step, norm1_func = None,
+    act_func = None, norm2_func = None
+  ):
     """Returns a constructed net."""
     pipeline = []
     for name in self.names:
-      mod0 = step(self, name)
+      mod0 = step_func(self, name)
       if mod0:
         pipeline.append((name, mod0))
       

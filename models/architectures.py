@@ -65,32 +65,30 @@ sizes1 = {
 convnet1 = NetDescription("convnet1", names1, table1, args1, kwargs1, sizes1)
 
 
-#### CONVNET2 ##########################################################
+#### ALMOST ALL CONVNET ################################################
 
 names2 = [
   "start",
   "conv11", "conv12", "conv13",
   "conv21", "conv22", "conv23",
   "conv31", "conv32", "conv33",
-  "flatten", "dense"
+  "g_max_pool"
 ]
 table2 = {
   **{"conv{}{}".format(i, j): nn.Conv2d for j in range(1, 4) for i in range(1, 4)},
-  "flatten": Functional,
-  "dense": nn.Linear,
+  "g_max_pool": nn.MaxPool2d
 }
 args2 = {
-  "conv11": [3, 60, 3],
-  "conv12": [60, 120, 3],
-  "conv13": [120, 120, 2],
-  "conv21": [120, 240, 3],
-  "conv22": [240, 480, 3],
-  "conv23": [480, 480, 2],
-  "conv31": [480, 240, 3],
-  "conv32": [240, 120, 3],
-  "conv33": [120, 120, 2],
-  "flatten": [flatten],
-  "dense": [1920, 10],
+  "conv11": [3, 96, 3],
+  "conv12": [96, 96, 3],
+  "conv13": [96, 96, 2],
+  "conv21": [96, 192, 3],
+  "conv22": [192, 192, 3],
+  "conv23": [192, 192, 2],
+  "conv31": [192, 192, 3],
+  "conv32": [192, 192, 1],
+  "conv33": [192, 10, 1],
+  "max_pool": [8]
 }
 kwargs2 = {
   "conv11": {"padding": 1},
@@ -101,21 +99,19 @@ kwargs2 = {
   "conv23": {"stride": 2},
   "conv31": {"padding": 1},
   "conv32": {"padding": 1},
-  "conv33": {"stride": 2}
 }
 sizes2 = {
   "start": (3, 32, 32),
-  "conv11": (60, 32, 32),
-  "conv12": (120, 32, 32),
-  "conv13": (120, 16, 16),
-  "conv21": (240, 16, 16),
-  "conv22": (480, 16, 16),
-  "conv23": (480, 8, 8),
-  "conv31": (240, 8, 8),
-  "conv32": (120, 8, 8),
-  "conv33": (120, 4, 4),
-  "flatten": (1920,),
-  "dense": (10,)
+  "conv11": (96, 32, 32),
+  "conv12": (96, 32, 32),
+  "conv13": (96, 16, 16),
+  "conv21": (192, 16, 16),
+  "conv22": (192, 16, 16),
+  "conv23": (192, 8, 8),
+  "conv31": (192, 8, 8),
+  "conv32": (192, 8, 8),
+  "conv33": (10, 8, 8),
+  "max_pool": (10,)
 }
 
 convnet2 = NetDescription("convnet2", names2, table2, args2, kwargs2, sizes2)

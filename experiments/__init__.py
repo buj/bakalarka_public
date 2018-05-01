@@ -129,3 +129,47 @@ def get_plotter(mod_names, td_type, metrics):
       for f in metrics:
         plot_arrays(context(txt(mod_names), exps, [data, f.__name__]), smoothing, **kwargs)
   return res
+
+
+#### EXPERIMENT GENERATION #############################################
+
+from lib.models.creation import str_to_step, str_to_norm, str_to_act, str_to_net, init_weights
+from lib.training import Trainer
+
+
+def gen_gen(train_data, val_data):
+  """Returns a function that generates experiments on the given data."""
+  trainer = Trainer(train_data, val_data, criterion, metrics, 512, torch.optim.SGD, num_epochs = 12)
+  
+  def gen(
+    lr, net = "convnet1",
+    step_func = "step", norm1_func = None, act_func = "relu", norm2_func = None,
+    gain = nn.init.calculate_gain("relu"),
+    weight_norm = False, prop_grad = None,
+    parallel = False,
+    name = "temp", **kwargs
+  ):
+    """Generates an experiment. The activation function is determined by
+    <act_func>. Use of normalization is determined by <norm1_func>
+    (before activation) and <norm2_func> (after activation)."""
+    params = locals()
+    
+    # Translate from english names to python objects.
+    net = str_to_net(net)
+    step_func = str_to_step(step_func)
+    norm1_func = str_to_norm(norm1_func)
+    act_func = str_to_act(act_func)
+    norm2_func = str_to_norm(norm2_func)
+    
+    def func():
+      model = net(norm1_func, act_func, norm2_func)
+      logging.info("Model info:\n%s", model)
+      model.apply(init_weights(gain, weight_norm, prop_grad))
+      if parallel:
+        model = torch.nn.DataParallel(model)
+      trainer.set(model = model, lr = lr, **kwargs)
+      return trainer.train(), model
+    
+    return Experiment(params, func)
+  
+  return gen
