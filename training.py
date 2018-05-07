@@ -40,9 +40,9 @@ class Trainer:
     self,
     train_data, val_data,
     criterion, metrics,
-    batch_size,
     optimizer, scheduler = None, opt_kwargs = {}, sch_kwargs = {},
-    num_epochs = 3,
+    batch_size = 64,
+    num_epochs = 1,
     early_stopping = 1023456789 # almost like infinity
   ):
     """Initializes the default values for parameters."""

@@ -8,12 +8,11 @@ import logging
 
 ######## BASIC STUFF ###################################################
 
-def conv(*args, in_size, out_size, gain = None, **kwargs):
-  """Returns a 2d convolutional layer with uninitialized weights.
-  Ignores <in_size> and <out_size>."""
+def conv(*args, in_size, out_size, gain = 1, **kwargs):
+  """Returns a 2d convolutional layer with Xavier initialized weights,
+  rescaled by <gain>. Ignores <in_size> and <out_size>."""
   f = nn.Conv2d(*args, **kwargs)
-  if gain is not None:
-    nn.init.xavier_normal_(f.weight, gain)
+  nn.init.xavier_normal_(f.weight, gain)
   with torch.no_grad():
     f.bias.fill_(0.0)
   return f
@@ -24,12 +23,13 @@ def pool(*args, in_size, out_size, **kwargs):
   return nn.MaxPool2d(*args, **kwargs)
 
 
-def dense(in_size, out_size, gain = None):
+def dense(in_size, out_size, gain = 1):
   """Returns a linear layer with uninitialized weights, with input
   size <in_size> and output size <out_size>."""
-  f = nn.Linear(in_size, out_size)
-  if gain is not None:
-    nn.init.xavier_normal_(f.weight, gain)
+  assert len(in_size) == 1, "Input to dense layer must be flat"
+  assert len(out_size) == 1, "Output from dense layer must be flat"
+  f = nn.Linear(*in_size, *out_size)
+  nn.init.xavier_normal_(f.weight, gain)
   with torch.no_grad():
     f.bias.fill_(0.0)
   return f
@@ -62,7 +62,7 @@ def batch_normed(func, *bn_args, **bn_kwargs):
       if norm.bias is not None:
         norm.bias.fill_(0.0)
     
-    return nn.Sequential([f, norm])
+    return nn.Sequential(f, norm)
   
   res.__name__ = func.__name__ + "_bn"
   return res
@@ -78,7 +78,7 @@ def layer_normed(func, *ln_args, after = True, **ln_kwargs):
   def res(*args, in_size, out_size, **kwargs):
     f = func(*args, in_size = in_size, out_size = out_size, **kwargs)
     norm = nn.LayerNorm(out_size, *ln_args, **ln_kwargs)
-    return nn.Sequential([f, norm])
+    return nn.Sequential(f, norm)
   
   res.__name__ = func.__name__ + "_ln"
   return res
@@ -86,14 +86,19 @@ def layer_normed(func, *ln_args, after = True, **ln_kwargs):
 
 #### ACTIVATIONS (wrap stuff) ##########################################
 
+from lib.functional import sgnlog as sgnlog_func
+
+
 def activated(func, act, gain = 1):
   """Returns a layer constructor that wraps <func>: the returned layer
   first performs <func> and then the activation act."""
   
-  def res(*args, in_size, out_size, **kwargs):
-    f = func(*args, in_size = in_size, out_size = out_size, gain = gain, **kwargs)
+  def res(*args, in_size, out_size, last = False, **kwargs):
+    f = func(*args, in_size = in_size, out_size = out_size, gain = (1 if last else gain), **kwargs)
+    if last:
+      return f
     a = act(*args, in_size = in_size, out_size = out_size, **kwargs)
-    return nn.Sequential([f, a])
+    return nn.Sequential(f, a)
   
   res.__name__ = func.__name__ + "_" + act.__name__
   return res
@@ -110,13 +115,16 @@ def simple_act(f):
 
 relu = simple_act(nn.functional.relu)
 tanh = simple_act(nn.functional.tanh)
+sgnlog = simple_act(sgnlog_func)
+
 identity = simple_act(lambda x: x)
+identity.__name__ = "identity"
 
 
 #### DEFAULTS ##########################################################
 
 default_layers = {
-  "start": simple_act(identity),
+  "start": identity,
   "conv": activated(conv, relu, nn.init.calculate_gain("relu")),
   "pool": pool,
   "dense": activated(dense, relu, nn.init.calculate_gain("relu"))
@@ -129,8 +137,32 @@ from .general import Functional
 from lib.functional import flatten
 
 
+def mlp1(start, dense, **kwargs):
+  """Returns a constructed multilayer perceptron whose exact architecture
+  is described in the thesis. <start> is a function that returns a layer
+  for preprocessing the input, <dense> is the linear layer constructor."""
+  
+  pipeline = [
+    # Initial preprocessing of input.
+    Functional(flatten),
+    start(in_size = (3072,), out_size = (3072,)),
+    
+    # Many dense layers.
+    dense(in_size = (3072,), out_size = (3000,)),
+    *[dense(in_size = (3000 - 200*i,), out_size = (2800 - 200*i,)) for i in range(10)],
+    *[dense(in_size = (1000 - 100*i,), out_size = (900 - 100*i,)) for i in range(9)],
+    
+    # Final dense layer.
+    dense(in_size = (100,), out_size = (10,), last = True)
+  ]
+  
+  pipeline = list(filter(lambda x: x, pipeline))
+  return nn.Sequential(*pipeline)
+
+
 def convnet2(start, conv, dense, **kwargs):
-  """Returns a constructed convnet2. <conv> is the convolution layer
+  """Returns a constructed convnet2. <start> is a function that returns
+  a layer for preprocessing the input, <conv> is the convolution layer
   constructor, <dense> is the linear layer constructor."""
   
   pipeline = [
@@ -155,15 +187,16 @@ def convnet2(start, conv, dense, **kwargs):
     # Flatten and dense.
     Functional(flatten),
     dense(in_size = (3072,), out_size = (200,)),
-    dense(in_size = (200,), out_size = (10,))
+    dense(in_size = (200,), out_size = (10,), last = True)
   ]
   
   pipeline = list(filter(lambda x: x, pipeline))
-  return nn.Sequential(pipeline)
+  return nn.Sequential(*pipeline)
 
 
 def all_convnet(start, conv, pool, **kwargs):
   """A convolutional network based on the 'All convolutional network'.
+  <start> is a function that returns a layer for preprocessing the input,
   <conv> is the convolution layer constructor, <pool> is the pooling
   layer constructor."""
   
@@ -184,7 +217,7 @@ def all_convnet(start, conv, pool, **kwargs):
     # Last round of convolutions.
     conv(192, 192, 3, padding = 1, in_size = (192, 8, 8), out_size = (192, 8, 8)),
     conv(192, 192, 1, in_size = (192, 8, 8), out_size = (192, 8, 8)),
-    conv(192, 10, 1, in_size = (192, 8, 8), out_size = (10, 8, 8)),
+    conv(192, 10, 1, in_size = (192, 8, 8), out_size = (10, 8, 8), last = True),
     
     # Max pool to obtain results.
     pool(8, in_size = (10, 8, 8), out_size = (10, 1, 1)),
@@ -192,4 +225,4 @@ def all_convnet(start, conv, pool, **kwargs):
   ]
   
   pipeline = list(filter(lambda x: x, pipeline))
-  return nn.Sequential(pipeline)
+  return nn.Sequential(*pipeline)

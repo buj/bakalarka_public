@@ -1,6 +1,6 @@
 import torch
 
-from . import plot_exps
+from . import *
 
 import logging
 
@@ -8,16 +8,21 @@ import logging
 #### BOILERPLATE #######################################################
 
 from lib.testdata import load_CIFAR10
-from lib.util import prefix
-from . import suffix, t_cent, t_acc, v_cent, v_acc
+from lib.functional import cross_entropy, accuracy
+from lib.util import prefix, prefix_as
 
 
-train_data, val_data = load_CIFAR10()
+ctx.train_data, ctx.val_data = load_CIFAR10()
+ctx.criterion = torch.nn.CrossEntropyLoss()
+ctx.metrics = [cross_entropy, accuracy]
 
-prefix = ["CIFAR10"]
-suffix = t_cent
+ctx.bind_trainer()
+
+
+prefix[:] = ["experiments", "CIFAR10"]
+suffix[:] = t_cent
 
 
 #### EXPERIMENTS #######################################################
 
-from . import Experiment, gen
+from lib.models.creation import mlp1, convnet2, all_convnet

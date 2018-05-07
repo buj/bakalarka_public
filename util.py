@@ -57,7 +57,7 @@ def _smooth(vals, k):
   is the running average of the prior values and that value."""
   vals = torch.Tensor(vals)
   norms = torch.ones_like(vals)
-  for i in range(vals.size()[0]):
+  for i in range(1, vals.size()[0]):
     vals[i] += vals[i-1] * k
     norms[i] += norms[i-1] * k
   vals /= norms

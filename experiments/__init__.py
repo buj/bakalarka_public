@@ -93,7 +93,10 @@ def _append_all(vals, exp_names):
 
 #### EXPERIMENT STRUCTURE ##############################################
 
-def save_params(params, exp_names):
+from lib.util import prefix, prefix_as, save_model
+
+
+def _save_params(params, exp_names):
   """Saves experiment parameters into experiment folder for later use."""
   filename = "params.txt"
   path = to_path(*exp_names, filename)
@@ -107,7 +110,7 @@ def save_params(params, exp_names):
         print(name, "=", value, file = fout)
 
 
-class Experiment:
+class _Experiment:
   """Implements an experimental setup. Can be called to carry out
   the experiment coded in it."""
   
@@ -132,7 +135,7 @@ class Experiment:
         self.params["prefix"].append(self.net)
     
     with prefix_as(self.prefix):
-      save_params(self.params, [self.name])
+      _save_params(self.params, [self.name])
   
   def __getattr__(self, name):
     """If we have no attribute named <name>, check the self.params dict."""
@@ -149,7 +152,7 @@ class Experiment:
     logging.info("Experiment {}".format(self.name))
     exp_data, model = self.func()
     with prefix_as(self.prefix):
-      append_all(exp_data, [self.name])
+      _append_all(exp_data, [self.name])
       save_model(model, [self.name])
     return model
 
@@ -157,21 +160,34 @@ class Experiment:
 #### EXPERIMENT GENERATION #############################################
 
 from lib.models.creation import default_layers
+from lib.training import Trainer
 
 
-"""Contextual variables that are different for each experiment."""
-train_data, val_data = None, None
-criterion = None
-metrics = None
-trainer = None
-layers = default_layers
+class ExpContext:
+  """Encapsulates variables so that they can be shared and modified
+  in other modules.  Because %@!!?!#& python can't do that."""
+  
+  def __init__(self):
+    self.train_data = None
+    self.val_data = None
+    self.metrics = None
+    self.trainer = None
+    self.layers = default_layers
+  
+  def bind_trainer(self):
+    """Bind the trainer to train_data, val_data, criterion, ... Usually
+    used only once, during initialization."""
+    self.trainer = Trainer(self.train_data, self.val_data, self.criterion, self.metrics, torch.optim.SGD)
+
+
+"""The one and only one context."""
+ctx = ExpContext()
 
 
 def gen(
-  seed = None,
-  lr, net, layers = layers,
+  lr, net, layers = ctx.layers,
   parallel = False,
-  name = "temp", **kwargs
+  name = "temp", seed = None, **kwargs
 ):
   """Generates an experiment. The rough network architecture is
   determined by <net>, and the details are determined by <layers>."""
@@ -181,17 +197,18 @@ def gen(
     "name": name, **kwargs
   }
   
-  f_seed = seed
-  
   def func():
-    if f_seed is not None:
-      logging.info("Setting random seed to: %d\n", f_seed)
-      torch.manual_seed(f_seed)
+    if seed is not None:
+      torch.manual_seed(seed)
+    
+    logging.info("Random seed is: %d\n", torch.initial_seed())
     model = net(**layers)
     logging.info("Model info:\n%s", model)
     if parallel:
       model = torch.nn.DataParallel(model)
-    trainer.set(model = model, lr = lr, **kwargs)
-    return trainer.train(), model
+    
+    global ctx
+    ctx.trainer.set(model = model, lr = lr, **kwargs)
+    return ctx.trainer.train(), model
   
-  return Experiment(params, func)
+  return _Experiment(params, func)
