@@ -1,8 +1,9 @@
 import torch
 
-from lib.util import *
+from lib.util import to_path
+import os
 
-import os, logging
+import logging
 
 
 """
@@ -22,31 +23,64 @@ Conventions:
 """
 
 
-dir_path = os.path.dirname(__file__)
+#### PLOTTING ##########################################################
+
+from contextlib import contextmanager
+from lib.util import context, plot_arrays
+
+
+"""<suffix> determines the suffix of all paths: whether we are looking
+for training or validation data, and what metric we want to see."""
+suffix = []
+
+@contextmanager
+def suffix_as(val):
+  """With this context manager, we can temporarily set <suffix> to
+  a specified value."""
+  global suffix
+  old_suffix = suffix
+  suffix = val
+  yield
+  suffix = old_suffix
+
+
+# Commonly used suffixes.
+t_cent = ["train", "cross_entropy"]
+t_acc = ["train", "accuracy"]
+v_cent = ["val", "cross_entropy"]
+v_acc = ["val", "accuracy"]
+
+
+def plot_exps(exps, smoothing = 0, **kwargs):
+  """Plots the given experiments. Prepends their names with the
+  current working directory 'prefix', and after that come suffixes from
+  'suffix'."""
+  global suffix
+  plot_arrays(context([], exps, suffix), smoothing, **kwargs)
 
 
 #### ARRAY MANIPULATION ################################################
 
-def append(array, location):
-  """Appends <array> to the array stored in <location>. More precisely,
-  the arrays are concatenated along the zeroth dimension."""
-  assert len(location) >= 1, "While appending to: empty location provided"
+def _append(array, names):
+  """Appends <array> to the array stored in location determined by
+  <names>. The arrays are concatenated along the zeroth dimension."""
+  assert len(names) >= 1, "While appending to: empty location provided"
   array = array.view(1, -1)
   
-  folder = os.path.join(dir_path, *location[:-1])
-  filename = location[-1] + ".pt"
-  path = os.path.join(folder, filename)
+  folder = names[:-1]
+  filename = names[-1] + ".pt"
+  path = to_path(*folder, filename)
   try:
     old = torch.load(path)
     new = torch.cat((old, array), dim = 0)
   except IOError:
     logging.info("While appending to: file %s couldn't be read, creating anew", path)
-    os.makedirs(folder, exist_ok = True)
+    os.makedirs(os.path.dirname(path), exist_ok = True)
     new = array
   torch.save(new, path)
 
 
-def append_all(vals, exp_names):
+def _append_all(vals, exp_names):
   """
   Appends data in <vals> to the experiment's prior data.
   <vals>: a two-level dict containing experiment data.
@@ -54,17 +88,16 @@ def append_all(vals, exp_names):
   """
   for name1, sub in vals.items():
     for name2, x in sub.items():
-      append(torch.Tensor(x), exp_names + [name1, name2])
+      _append(torch.Tensor(x), exp_names + [name1, name2])
 
 
 #### EXPERIMENT STRUCTURE ##############################################
 
 def save_params(params, exp_names):
   """Saves experiment parameters into experiment folder for later use."""
-  folder = os.path.join(dir_path, *exp_names)
   filename = "params.txt"
-  path = os.path.join(folder, filename)
-  os.makedirs(folder, exist_ok = True)
+  path = to_path(*exp_names, filename)
+  os.makedirs(os.path.dirname(path), exist_ok = True)
   with open(path, "w") as fout:
     for name, value in params.items():
       if name == "kwargs":
@@ -90,9 +123,16 @@ class Experiment:
     self.func = func
     if "name" not in self.params:
       self.params["name"] = func.__name__
+    
+    # Store the prefix. This is where the experiment folder will be located.
+    global prefix
     if "prefix" not in self.params:
-      self.params["prefix"] = func.__module__.split('.')[-1]
-    save_params(self.params, [self.prefix, self.net, self.name])
+      self.params["prefix"] = prefix
+      if len(prefix) == 0 or prefix[-1] != self.net:
+        self.params["prefix"].append(self.net)
+    
+    with prefix_as(self.prefix):
+      save_params(self.params, [self.name])
   
   def __getattr__(self, name):
     """If we have no attribute named <name>, check the self.params dict."""
@@ -108,95 +148,50 @@ class Experiment:
     in the experiment's folder."""
     logging.info("Experiment {}".format(self.name))
     exp_data, model = self.func()
-    names = [self.prefix, self.net, self.name]
-    append_all(exp_data, names)
-    save_model(model, names)
+    with prefix_as(self.prefix):
+      append_all(exp_data, [self.name])
+      save_model(model, [self.name])
     return model
-
-
-#### PLOTTING UTILS ####################################################
-
-"""Current working directory. Is appended after the module name prefix."""
-prefix = []
-suffix = []
-
-
-def plot_exps(exps, smoothing = 0, prefix = prefix, suffix = suffix, **kwargs):
-  """Plots the given experiments. Prepends their names with the
-  current working directory 'prefix', and after that come suffixes from
-  'suffix'."""
-  plot_arrays(context(prefix, exps, suffix), smoothing, **kwargs)
-
-
-def get_plotter(mod_names, td_type, metrics):
-  """
-  Deprecated, no guarantees it works anymore. Use 'plot_exps' instead.
-  
-  Returns a plotting function that takes two arguments:
-  <exps>: the experiments functions to be plotted.
-  <smoothing>: how much emphasis should the plotter place on prior
-    values. Default is 0.
-  
-  'get_plotter' itself takes three arguments:
-  <mod_name>: Name of the experiment module. Determines the first level
-    of the folder hierarchy.
-  <td_type>: Whether we want to plot training or validation data. Is
-    a list of these options.
-  <metrics>: Which metrics we want the plotter to plot.
-  """
-  def res(exps, smoothing = 0, **kwargs):
-    exps = [f.split('.') if type(f) is str else [f.net, f.name] for f in exps]
-    for data in td_type:
-      for f in metrics:
-        plot_arrays(context(txt(mod_names) + cwd, exps, [data, f.__name__]), smoothing, **kwargs)
-  return res
 
 
 #### EXPERIMENT GENERATION #############################################
 
-from torch import nn
-
-from lib.functional import cross_entropy, accuracy
-from lib.models.creation import str_to_step, str_to_norm, str_to_act, str_to_net, init_weights
-from lib.training import Trainer
+from lib.models.creation import default_layers
 
 
-def gen_gen(
-  train_data, val_data,
-  criterion = nn.CrossEntropyLoss(), metrics = [cross_entropy, accuracy]
+"""Contextual variables that are different for each experiment."""
+train_data, val_data = None, None
+criterion = None
+metrics = None
+trainer = None
+layers = default_layers
+
+
+def gen(
+  seed = None,
+  lr, net, layers = layers,
+  parallel = False,
+  name = "temp", **kwargs
 ):
-  """Returns a function that generates experiments on the given data."""
-  trainer = Trainer(train_data, val_data, criterion, metrics, 512, torch.optim.SGD, num_epochs = 60)
+  """Generates an experiment. The rough network architecture is
+  determined by <net>, and the details are determined by <layers>."""
+  params = {
+    "lr": lr, "net": net.__name__,
+    **{name: f.__name__ for name, f in layers.items()},
+    "name": name, **kwargs
+  }
   
-  def gen(
-    lr, net = "convnet1",
-    step_func = "step", norm1_func = None, act_func = "relu", norm2_func = None,
-    gain = nn.init.calculate_gain("relu"),
-    weight_norm = False, prop_grad = None,
-    parallel = False,
-    name = "temp", **kwargs
-  ):
-    """Generates an experiment. The activation function is determined by
-    <act_func>. Use of normalization is determined by <norm1_func>
-    (before activation) and <norm2_func> (after activation)."""
-    params = locals()
-    
-    # Translate from english names to python objects.
-    net = str_to_net(net)
-    step_func = str_to_step(step_func)
-    norm1_func = str_to_norm(norm1_func)
-    act_func = str_to_act(act_func)
-    norm2_func = str_to_norm(norm2_func)
-    
-    def func():
-      model = net(norm1_func, act_func, norm2_func)
-      logging.info("Model info:\n%s", model)
-      model.apply(init_weights(gain, weight_norm, prop_grad))
-      if parallel:
-        model = torch.nn.DataParallel(model)
-      trainer.set(model = model, lr = lr, **kwargs)
-      return trainer.train(), model
-    
-    return Experiment(params, func)
+  f_seed = seed
   
-  return gen
+  def func():
+    if f_seed is not None:
+      logging.info("Setting random seed to: %d\n", f_seed)
+      torch.manual_seed(f_seed)
+    model = net(**layers)
+    logging.info("Model info:\n%s", model)
+    if parallel:
+      model = torch.nn.DataParallel(model)
+    trainer.set(model = model, lr = lr, **kwargs)
+    return trainer.train(), model
+  
+  return Experiment(params, func)
