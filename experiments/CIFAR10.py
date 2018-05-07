@@ -25,4 +25,18 @@ suffix[:] = t_cent
 
 #### EXPERIMENTS #######################################################
 
-from lib.models.creation import mlp1, convnet2, all_convnet
+from lib.models.creation import *
+
+
+######## MLP1 experiments ##############################################
+
+############ IoLinear ##################################################
+
+io_layers = {**default_layers}
+io_layers["dense"] = activated(io_dense, relu, nn.init.calculate_gain("relu"))
+
+ios = [
+  gen(0.02 * 10**-i, mlp1, num_epochs = 30,
+    layers = io_layers, name = "io_dense{}".format(i)
+  ) for i in range(5)
+]

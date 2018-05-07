@@ -213,3 +213,32 @@ class ParameterizedSgnlog(MyModule):
   
   def forward(self, x):
     return parameterized_sgnlog(x, self.p)
+
+
+#### RANDOM STUFF (unclassified) #######################################
+
+class IoLinear(MyModule):
+  """Similar to a linear layer, except that each input has a weight
+  that influences all edges coming from that input, and each output
+  has a weight that influences edges coming into it."""
+  
+  def __init__(self, in_size, out_size):
+    super().__init__()
+    self.weight = nn.Parameter(torch.empty(out_size, in_size))
+    
+    # These are skipped by used init procedures, so we initialize it here.
+    self.in_weight = nn.Parameter(torch.zeros(in_size))
+    self.out_weight = nn.Parameter(torch.zeros(out_size))
+    
+    # Give the weights hooks, so that they learn evenly and that
+    # when compared to bias, the ratio of learning is the same as
+    # in linear layers.
+    self.weight.register_hook(lambda grad: grad / 3)
+    self.in_weight.register_hook(lambda grad: grad / out_size / 3)
+    self.out_weight.register_hook(lambda grad: grad / in_size / 3)
+    
+    self.bias = nn.Parameter(torch.empty(out_size))
+  
+  def forward(self, x):
+    W = torch.unsqueeze(self.in_weight, 0) + self.weight + torch.unsqueeze(self.out_weight, 1)
+    return nn.functional.linear(x, W, self.bias)

@@ -190,18 +190,18 @@ def gen(
   name = "temp", seed = None, **kwargs
 ):
   """Generates an experiment. The rough network architecture is
-  determined by <net>, and the details are determined by <layers>."""
+  determined by <net>, and the details are determined by <layers>."""  
   params = {
     "lr": lr, "net": net.__name__,
     **{name: f.__name__ for name, f in layers.items()},
-    "name": name, **kwargs
+    "name": name, "seed": seed, **kwargs
   }
   
   def func():
     if seed is not None:
       torch.manual_seed(seed)
+      logging.info("Random seed is: %d\n", torch.initial_seed())
     
-    logging.info("Random seed is: %d\n", torch.initial_seed())
     model = net(**layers)
     logging.info("Model info:\n%s", model)
     if parallel:

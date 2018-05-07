@@ -24,11 +24,30 @@ def pool(*args, in_size, out_size, **kwargs):
 
 
 def dense(in_size, out_size, gain = 1):
-  """Returns a linear layer with uninitialized weights, with input
-  size <in_size> and output size <out_size>."""
+  """Returns a linear layer with weights initialized with Xavier and
+  rescaled by <gain>, with input size <in_size> and output size <out_size>."""
   assert len(in_size) == 1, "Input to dense layer must be flat"
   assert len(out_size) == 1, "Output from dense layer must be flat"
   f = nn.Linear(*in_size, *out_size)
+  nn.init.xavier_normal_(f.weight, gain)
+  with torch.no_grad():
+    f.bias.fill_(0.0)
+  return f
+
+
+######## ADVANCED BASIC STUFF ##########################################
+
+from .general import IoLinear
+
+
+def io_dense(in_size, out_size, gain = 1):
+  """Returns an io_linear layer with standard input-to-output weights
+  initialized with Xavier and rescaled by <gain>. Input weights and
+  output weights are set to 0. Input size is <in_size>, output size
+  is <out_size>."""
+  assert len(in_size) == 1, "Input to io_dense layer must be flat"
+  assert len(out_size) == 1, "Output from io_dense layer must be flat"
+  f = IoLinear(*in_size, *out_size)
   nn.init.xavier_normal_(f.weight, gain)
   with torch.no_grad():
     f.bias.fill_(0.0)
