@@ -3,24 +3,7 @@ from torch import nn
 from torch.autograd import Variable
 
 
-class MyModule(nn.Module):
-  """Custom nn_module with enhanced capabilities that are missing in
-  pytorch."""
-  
-  def __call__(self, x):
-    # Converts <x> to Variable if necessary, because !@#%ing pytorch
-    # can't do stuff when Tensors and Variables are mixed.
-    if not isinstance(x, Variable):
-      old_train = self.training
-      self.train(False)
-      x = Variable(x)
-      res = super().__call__(x).data
-      self.train(old_train)
-      return res
-    return super().__call__(x)
-
-
-class Functional(MyModule):
+class Functional(nn.Module):
   """A module that implements an arbitrary unary function. It has
   no trainable parameters."""
   
@@ -43,7 +26,7 @@ def scaler_grad(param, eps = 10**-6):
   return hook
 
 
-class ElementwiseScaler(MyModule):
+class ElementwiseScaler(nn.Module):
   """Scales the input, each element has its owen scaling factor (as
   opposed to a global scaling factor)."""
   
@@ -68,7 +51,7 @@ def elem_scaler_grad(param):
   return hook
 
 
-class PositiveElementwiseScaler(MyModule):
+class PositiveElementwiseScaler(nn.Module):
   """Scales the input, each element has its own positive scaling factor
   (as opposed to a global scaling factor)."""
   
@@ -84,7 +67,7 @@ class PositiveElementwiseScaler(MyModule):
     return x * torch.exp(self.weight)
 
 
-class ElementwiseShifter(MyModule):
+class ElementwiseShifter(nn.Module):
   """Shifts the input, each element has its own bias (as opposed to
   a global bias)."""
   
@@ -97,7 +80,7 @@ class ElementwiseShifter(MyModule):
     return x + self.weight
 
 
-class NegPoser(MyModule):
+class NegPoser(nn.Module):
   """Wraps two modules. The first determines the behaviour
   on negative values, the second determines the behaviour on
   positive values. For zero, returns the average of the two."""
@@ -116,7 +99,7 @@ class NegPoser(MyModule):
 
 #### ACTIVATION FUNCTION WARPERS #######################################
 
-class Scaler(MyModule):
+class Scaler(nn.Module):
   """Can wrap an activation function. Enables scaling of both the input
   and the output.
   
@@ -143,7 +126,7 @@ class Scaler(MyModule):
     return self.ay * self.sub(x * self.ax)
 
 
-class Zoomer(MyModule):
+class Zoomer(nn.Module):
   """Can wrap an activation function. Enables scaling of both the input
   and the output. The scalings are inverse, and the result is a 'zoom-in'
   or 'zoom-out' of the activation function.
@@ -162,7 +145,7 @@ class Zoomer(MyModule):
     return torch.exp(-self.k) * self.sub(x * torch.exp(self.k))
 
 
-class Centerer(MyModule):
+class Centerer(nn.Module):
   """Can wrap an activation function. Enables centering of both the input
   and the output.
   
@@ -179,7 +162,7 @@ class Centerer(MyModule):
     return self.sub(x + self.bx) + self.by
 
 
-class Tracker(MyModule):
+class Tracker(nn.Module):
   """Can wrap an activation function. Enables centering of both the input
   and the output. The adjustments are inverse with respect to each other.
   
@@ -202,7 +185,7 @@ class Tracker(MyModule):
 from lib.functional import parameterized_sgnlog
 
 
-class ParameterizedSgnlog(MyModule):
+class ParameterizedSgnlog(nn.Module):
   """Implements the parameterized sgnlog."""
   
   def __init__(self, in_size):
@@ -215,9 +198,9 @@ class ParameterizedSgnlog(MyModule):
     return parameterized_sgnlog(x, self.p)
 
 
-#### RANDOM STUFF (unclassified) #######################################
+#### RANDOM STUFF ######################################################
 
-class IoLinear(MyModule):
+class IoLinear(nn.Module):
   """Similar to a linear layer, except that each input has a weight
   that influences all edges coming from that input, and each output
   has a weight that influences edges coming into it."""

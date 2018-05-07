@@ -28,15 +28,26 @@ suffix[:] = t_cent
 from lib.models.creation import *
 
 
-######## MLP1 experiments ##############################################
+############ Io ########################################################
 
-############ IoLinear ##################################################
+io_layers = {**default_layers,
+  "dense": activated(io_dense, relu, nn.init.calculate_gain("relu"))
+}
 
-io_layers = {**default_layers}
-io_layers["dense"] = activated(io_dense, relu, nn.init.calculate_gain("relu"))
 
-ios = [
-  gen(0.02 * 10**-i, mlp1, num_epochs = 30,
-    layers = io_layers, name = "io_dense{}".format(i)
-  ) for i in range(5)
-]
+############ Sgnlog ####################################################
+
+sgnlog_layers = {**default_layers,
+  "conv": activated(conv, sgnlog),
+  "dense": activated(dense, sgnlog)
+}
+
+bn_sgnlog_layers = {**default_layers,
+  "start": batch_normed(identity),
+  "conv": activated(batch_normed(conv), sgnlog),
+  "dense": activated(batch_normed(dense), sgnlog)
+}
+
+############ ReLU ######################################################
+
+

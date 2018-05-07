@@ -5,7 +5,7 @@ import logging
 
 #### CONVENIENCE METHODS ###############################################
 
-import os
+import os, copy
 from contextlib import contextmanager
 
 
@@ -19,10 +19,10 @@ def prefix_as(val):
   """With this context manager, we can temporarily set <prefix> to
   a specified value."""
   global prefix
-  old_prefix = prefix
-  prefix = val
+  old_prefix = copy.copy(prefix)
+  prefix[:] = val
   yield
-  prefix = old_prefix
+  prefix[:] = old_prefix
 
 
 def to_path(*names):

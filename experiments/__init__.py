@@ -1,7 +1,7 @@
 import torch
 
 from lib.util import to_path
-import os
+import os, copy
 
 import logging
 
@@ -38,10 +38,10 @@ def suffix_as(val):
   """With this context manager, we can temporarily set <suffix> to
   a specified value."""
   global suffix
-  old_suffix = suffix
-  suffix = val
+  old_suffix = copy.copy(suffix)
+  suffix[:] = val
   yield
-  suffix = old_suffix
+  suffix[:] = old_suffix
 
 
 # Commonly used suffixes.
@@ -130,7 +130,7 @@ class _Experiment:
     # Store the prefix. This is where the experiment folder will be located.
     global prefix
     if "prefix" not in self.params:
-      self.params["prefix"] = prefix
+      self.params["prefix"] = copy.copy(prefix)
       if len(prefix) == 0 or prefix[-1] != self.net:
         self.params["prefix"].append(self.net)
     
