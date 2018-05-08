@@ -56,6 +56,18 @@ def dense(in_size, out_size, gain = 1):
   return f
 
 
+def dropout(p, in_size, out_size):
+  """Returns a dropout layer. The probability of dropping a node is
+  set to <p>."""
+  if len(in_size) <= 2:
+    drop_class = nn.Dropout1d
+  elif len(in_size) == 3:
+    drop_class = nn.Dropout2d
+  else:
+    drop_class = nn.Dropout3d
+  return drop_class(p)
+
+
 ######## ADVANCED BASIC STUFF ##########################################
 
 from .general import IoLinear
@@ -184,7 +196,8 @@ default_layers = {
   "start": identity,
   "conv": activated(conv, relu, nn.init.calculate_gain("relu")),
   "pool": pool,
-  "dense": activated(dense, relu, nn.init.calculate_gain("relu"))
+  "dense": activated(dense, relu, nn.init.calculate_gain("relu")),
+  "dropout": dropout
 }
 
 
@@ -194,36 +207,47 @@ from .general import Functional
 from lib.functional import flatten
 
 
-def mlp1(start, dense, **kwargs):
+def mlp1(start, dense, dropout, **kwargs):
   """Returns a constructed multilayer perceptron whose exact architecture
   is described in the thesis. <start> is a function that returns a layer
   for preprocessing the input, <dense> is the linear layer constructor."""
   
   pipeline = [
     # Initial preprocessing of input.
+    dropout(0.2, in_size = (3, 32, 32), out_size = (3, 32, 32)),
     Functional(flatten),
     start(in_size = (3072,), out_size = (3072,)),
     
-    # Many dense layers.
     dense(in_size = (3072,), out_size = (3000,)),
-    *[dense(in_size = (3000 - 200*i,), out_size = (2800 - 200*i,)) for i in range(10)],
-    *[dense(in_size = (1000 - 100*i,), out_size = (900 - 100*i,)) for i in range(9)],
-    
-    # Final dense layer.
-    dense(in_size = (100,), out_size = (10,), last = True)
+    dropout(0.5, in_size = (3000,), out_size = (3000,)),
   ]
+  # Many dense layers. Dropout after each dense layer.
+  for i in range(10):
+    pipeline.extend([
+      dense(in_size = (3000 - 200*i,), out_size = (2800 - 200*i,)),
+      dropout(0.5, in_size = (2800 - 200*i,), out_size = (2800 - 200*i,))
+    ])
+  for i in range(9):
+    pipeline.extend([
+      dense(in_size = (1000 - 100*i,), out_size = (900 - 100*i,)),
+      dropout(0.5, in_size = (900 - 100*i,), out_size = (900 - 100*i,))
+    ])
+  
+  # Final dense layer.
+  pipeline.append(dense(in_size = (100,), out_size = (10,), last = True))
   
   pipeline = list(filter(lambda x: x, pipeline))
   return nn.Sequential(*pipeline)
 
 
-def convnet2(start, conv, dense, **kwargs):
+def convnet2(start, conv, dense, dropout, **kwargs):
   """Returns a constructed convnet2. <start> is a function that returns
   a layer for preprocessing the input, <conv> is the convolution layer
   constructor, <dense> is the linear layer constructor."""
   
   pipeline = [
     # Initial preprocessing of input.
+    dropout(0.2, in_size = (3, 32, 32), out_size = (3, 32, 32)),
     start(in_size = (3, 32, 32), out_size = (3, 32, 32)),
     
     # First round of convolutions.
@@ -235,15 +259,18 @@ def convnet2(start, conv, dense, **kwargs):
     conv(3, padding = 1, in_size = (12, 16, 16), out_size = (24, 16, 16)),
     conv(3, padding = 1, in_size = (24, 16, 16), out_size = (48, 16, 16)),
     conv(2, stride = 2, in_size = (48, 16, 16), out_size = (48, 8, 8)),
+    dropout(0.5, in_size = (48, 8, 8), out_size = (48, 8, 8)),
     
     # Last round of convolutions.
     conv(3, padding = 1, in_size = (48, 8, 8), out_size = (96, 8, 8)),
     conv(3, padding = 1, in_size = (96, 8, 8), out_size = (192, 8, 8)),
     conv(2, stride = 2, in_size = (192, 8, 8), out_size = (192, 4, 4)),
+    dropout(0.5, in_size = (192, 4, 4), out_size = (192, 4, 4)),
     
     # Flatten and dense.
     Functional(flatten),
     dense(in_size = (3072,), out_size = (200,)),
+    dropout(0.5, in_size = (200,), out_size = (200,)),
     dense(in_size = (200,), out_size = (10,), last = True)
   ]
   
@@ -251,7 +278,7 @@ def convnet2(start, conv, dense, **kwargs):
   return nn.Sequential(*pipeline)
 
 
-def all_convnet(start, conv, pool, **kwargs):
+def all_convnet(start, conv, pool, dropout, **kwargs):
   """A convolutional network based on the 'All convolutional network'.
   <start> is a function that returns a layer for preprocessing the input,
   <conv> is the convolution layer constructor, <pool> is the pooling
@@ -259,22 +286,25 @@ def all_convnet(start, conv, pool, **kwargs):
   
   pipeline = [
     # Initial preprocessing of input.
+    dropout(0.2, in_size = (3, 32, 32), out_size = (3, 32, 32)),
     start(in_size = (3, 32, 32), out_size = (3, 32, 32)),
     
     # First round of convolutions.
-    conv(3, 96, 3, padding = 1, in_size = (3, 32, 32), out_size = (96, 32, 32)),
-    conv(96, 96, 3, padding = 1, in_size = (96, 32, 32), out_size = (96, 32, 32)),
-    conv(96, 96, 2, stride = 2, in_size = (96, 32, 32), out_size = (96, 16, 16)),
+    conv(3, padding = 1, in_size = (3, 32, 32), out_size = (96, 32, 32)),
+    conv(3, padding = 1, in_size = (96, 32, 32), out_size = (96, 32, 32)),
+    conv(2, stride = 2, in_size = (96, 32, 32), out_size = (96, 16, 16)),
+    dropout(0.5, in_size = (96, 16, 16), out_size = (96, 16, 16)),
     
     # Second round of convolutions.
-    conv(96, 192, 3, padding = 1, in_size = (96, 16, 16), out_size = (192, 16, 16)),
-    conv(192, 192, 3, padding = 1, in_size = (192, 16, 16), out_size = (192, 16, 16)),
-    conv(192, 192, 2, stride = 2, in_size = (192, 16, 16), out_size = (192, 8, 8)),
+    conv(3, padding = 1, in_size = (96, 16, 16), out_size = (192, 16, 16)),
+    conv(3, padding = 1, in_size = (192, 16, 16), out_size = (192, 16, 16)),
+    conv(2, stride = 2, in_size = (192, 16, 16), out_size = (192, 8, 8)),
+    dropout(0.5, in_size = (192, 8, 8), out_size = (192, 8, 8)),
     
     # Last round of convolutions.
-    conv(192, 192, 3, padding = 1, in_size = (192, 8, 8), out_size = (192, 8, 8)),
-    conv(192, 192, 1, in_size = (192, 8, 8), out_size = (192, 8, 8)),
-    conv(192, 10, 1, in_size = (192, 8, 8), out_size = (10, 8, 8), last = True),
+    conv(3, padding = 1, in_size = (192, 8, 8), out_size = (192, 8, 8)),
+    conv(1, in_size = (192, 8, 8), out_size = (192, 8, 8)),
+    conv(1, in_size = (192, 8, 8), out_size = (10, 8, 8), last = True),
     
     # Max pool to obtain results.
     pool(8, in_size = (10, 8, 8), out_size = (10, 1, 1)),

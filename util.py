@@ -28,7 +28,10 @@ def prefix_as(val):
 def to_path(*names):
   """Converts a list of nested folder names into a 'path'."""
   global prefix
-  return os.path.join(_dir_path, *prefix, *names)
+  tokens = []
+  for x in names:
+    tokens.extend(x.strip().split())
+  return os.path.join(_dir_path, *prefix, *tokens)
 
 
 def txt(name):
