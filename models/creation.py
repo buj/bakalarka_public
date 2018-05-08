@@ -6,12 +6,33 @@ import logging
 
 #### LAYER CONSTRUCTORS ################################################
 
+######## META STUFF ####################################################
+
+def simple_wrap(wrapper, abbr):
+  """Returns a function, that returns a layer constructor that can
+  wrap a function with <wrapper>. It is assumed that <wrapper> takes
+  <out_size> as the first positional argument."""
+  
+  def res1(func, *wp_args, **wp_kwargs):
+    """Returns a layer constructor, that wraps <func> in <wrapper>."""
+    
+    def res2(*args, in_size, out_size, **kwargs):
+      f = func(*args, in_size = in_size, out_size = out_size, **kwargs)
+      wp = wrapper(out_size, *wp_args, **wp_kwargs)
+      return nn.Sequential(f, wp)
+    
+    res2.__name__ = func.__name__ + "_" + abbr
+    return res2
+  
+  return res1
+
+
 ######## BASIC STUFF ###################################################
 
 def conv(*args, in_size, out_size, gain = 1, **kwargs):
   """Returns a 2d convolutional layer with Xavier initialized weights,
-  rescaled by <gain>. Ignores <in_size> and <out_size>."""
-  f = nn.Conv2d(*args, **kwargs)
+  rescaled by <gain>."""
+  f = nn.Conv2d(in_size[0], out_size[0], *args, **kwargs)
   nn.init.xavier_normal_(f.weight, gain)
   with torch.no_grad():
     f.bias.fill_(0.0)
@@ -19,7 +40,7 @@ def conv(*args, in_size, out_size, gain = 1, **kwargs):
 
 
 def pool(*args, in_size, out_size, **kwargs):
-  """Returns a 2d max-pooling layer."""
+  """Returns a 2d max-pooling layer. Ignores <in_size> and <out_size>."""
   return nn.MaxPool2d(*args, **kwargs)
 
 
@@ -87,20 +108,37 @@ def batch_normed(func, *bn_args, **bn_kwargs):
   return res
 
 
-def layer_normed(func, *ln_args, after = True, **ln_kwargs):
-  """
-  Returns a layer constructor that wraps <func>: first, the layer
-  <func> is executed. Then, layer normalization with parameters determined
-  by <*ln_args> and <*ln_kwargs> is applied.
-  """
-  
-  def res(*args, in_size, out_size, **kwargs):
-    f = func(*args, in_size = in_size, out_size = out_size, **kwargs)
-    norm = nn.LayerNorm(out_size, *ln_args, **ln_kwargs)
-    return nn.Sequential(f, norm)
-  
-  res.__name__ = func.__name__ + "_ln"
+layer_normed = simple_wrap(nn.LayerNorm, "ln")
+
+
+#### SCALING AND SHIFTING LAYERS #######################################
+
+from .general import Scaler, Shifter
+
+
+element_scaled = simple_wrap(Scaler, "es")
+element_shifted = simple_wrap(Shifter, "esh")
+
+def np_es_wrapper(out_size, *args, **kwargs):
+  """Returns the negposed elementwise scaler."""
+  return NegPoser(Scaler(out_size, *args, **kwargs),
+                  Scaler(out_size, *args, **kwargs))
+
+negpos_scaled = simple_wrap(np_es_wrapper, "np_es")
+
+
+def channeled(wrapper):
+  """Useful for per-channel operations."""
+  def res(out_size, *args, **kwargs):
+    # Set all dimensions except the first to size 1.
+    out_info = [*out_size]
+    for i in range(1, len(out_size)):
+      out_info[i] = 1
+    return wrapper(out_info, *args, **kwargs)
   return res
+
+channel_scaled = simple_wrap(channeled(Scaler), "cs")
+channel_shifted = simple_wrap(channeled(Shifter), "csh")
 
 
 #### ACTIVATIONS (wrap stuff) ##########################################
@@ -189,19 +227,19 @@ def convnet2(start, conv, dense, **kwargs):
     start(in_size = (3, 32, 32), out_size = (3, 32, 32)),
     
     # First round of convolutions.
-    conv(3, 6, 3, padding = 1, in_size = (3, 32, 32), out_size = (6, 32, 32)),
-    conv(6, 12, 3, padding = 1, in_size = (6, 32, 32), out_size = (12, 32, 32)),
-    conv(12, 12, 2, stride = 2, in_size = (12, 32, 32), out_size = (12, 16, 16)),
+    conv(3, padding = 1, in_size = (3, 32, 32), out_size = (6, 32, 32)),
+    conv(3, padding = 1, in_size = (6, 32, 32), out_size = (12, 32, 32)),
+    conv(2, stride = 2, in_size = (12, 32, 32), out_size = (12, 16, 16)),
     
     # Second round of convolutions.
-    conv(12, 24, 3, padding = 1, in_size = (12, 16, 16), out_size = (24, 16, 16)),
-    conv(24, 48, 3, padding = 1, in_size = (24, 16, 16), out_size = (48, 16, 16)),
-    conv(48, 48, 2, stride = 2, in_size = (48, 16, 16), out_size = (48, 8, 8)),
+    conv(3, padding = 1, in_size = (12, 16, 16), out_size = (24, 16, 16)),
+    conv(3, padding = 1, in_size = (24, 16, 16), out_size = (48, 16, 16)),
+    conv(2, stride = 2, in_size = (48, 16, 16), out_size = (48, 8, 8)),
     
     # Last round of convolutions.
-    conv(48, 96, 3, padding = 1, in_size = (48, 8, 8), out_size = (96, 8, 8)),
-    conv(96, 192, 3, padding = 1, in_size = (96, 8, 8), out_size = (192, 8, 8)),
-    conv(192, 192, 2, stride = 2, in_size = (192, 8, 8), out_size = (192, 4, 4)),
+    conv(3, padding = 1, in_size = (48, 8, 8), out_size = (96, 8, 8)),
+    conv(3, padding = 1, in_size = (96, 8, 8), out_size = (192, 8, 8)),
+    conv(2, stride = 2, in_size = (192, 8, 8), out_size = (192, 4, 4)),
     
     # Flatten and dense.
     Functional(flatten),

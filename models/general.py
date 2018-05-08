@@ -19,14 +19,14 @@ class Functional(nn.Module):
 
 def scaler_grad(param, eps = 10**-6):
   """Returns a hook that adjusts the gradient with respect to <param>.
-  Used by the Scaler and ElementwiseScaler module."""
+  Used by the ActScaler and Scaler modules."""
   def hook(grad):
     with torch.no_grad():
       return grad * (eps**2 + param**2)**0.5
   return hook
 
 
-class ElementwiseScaler(nn.Module):
+class Scaler(nn.Module):
   """Scales the input, each element has its owen scaling factor (as
   opposed to a global scaling factor)."""
   
@@ -42,16 +42,16 @@ class ElementwiseScaler(nn.Module):
     return x * self.weight
 
 
-def elem_scaler_grad(param):
+def pos_scaler_grad(param):
   """Returns a hook that adjusts the gradient with respect to <param>.
-  Used by the ElementwiseScaler module."""
+  Used by the PositiveScaler module."""
   def hook(grad):
     with torch.no_grad():
       return grad * torch.exp(-param)
   return hook
 
 
-class PositiveElementwiseScaler(nn.Module):
+class PositiveScaler(nn.Module):
   """Scales the input, each element has its own positive scaling factor
   (as opposed to a global scaling factor)."""
   
@@ -61,13 +61,13 @@ class PositiveElementwiseScaler(nn.Module):
     self.weight = nn.Parameter(torch.zeros(*in_size))
     if eps is not None:
       self.eps = eps
-      self.weight.register_hook(elem_scaler_grad(self.weight))
+      self.weight.register_hook(pos_scaler_grad(self.weight))
   
   def forward(self, x):
     return x * torch.exp(self.weight)
 
 
-class ElementwiseShifter(nn.Module):
+class Shifter(nn.Module):
   """Shifts the input, each element has its own bias (as opposed to
   a global bias)."""
   
@@ -99,7 +99,7 @@ class NegPoser(nn.Module):
 
 #### ACTIVATION FUNCTION WARPERS #######################################
 
-class Scaler(nn.Module):
+class ActScaler(nn.Module):
   """Can wrap an activation function. Enables scaling of both the input
   and the output.
   
@@ -126,7 +126,7 @@ class Scaler(nn.Module):
     return self.ay * self.sub(x * self.ax)
 
 
-class Zoomer(nn.Module):
+class ActZoomer(nn.Module):
   """Can wrap an activation function. Enables scaling of both the input
   and the output. The scalings are inverse, and the result is a 'zoom-in'
   or 'zoom-out' of the activation function.
@@ -145,7 +145,7 @@ class Zoomer(nn.Module):
     return torch.exp(-self.k) * self.sub(x * torch.exp(self.k))
 
 
-class Centerer(nn.Module):
+class ActCenterer(nn.Module):
   """Can wrap an activation function. Enables centering of both the input
   and the output.
   
@@ -162,7 +162,7 @@ class Centerer(nn.Module):
     return self.sub(x + self.bx) + self.by
 
 
-class Tracker(nn.Module):
+class ActTracker(nn.Module):
   """Can wrap an activation function. Enables centering of both the input
   and the output. The adjustments are inverse with respect to each other.
   
