@@ -44,12 +44,12 @@ def pool(*args, in_size, out_size, **kwargs):
   return nn.MaxPool2d(*args, **kwargs)
 
 
-def dense(in_size, out_size, gain = 1):
+def dense(*args, in_size, out_size, gain = 1, **kwargs):
   """Returns a linear layer with weights initialized with Xavier and
   rescaled by <gain>, with input size <in_size> and output size <out_size>."""
   assert len(in_size) == 1, "Input to dense layer must be flat"
   assert len(out_size) == 1, "Output from dense layer must be flat"
-  f = nn.Linear(*in_size, *out_size)
+  f = nn.Linear(*in_size, *out_size, *args, **kwargs)
   nn.init.xavier_normal_(f.weight, gain)
   with torch.no_grad():
     f.bias.fill_(0.0)
@@ -97,7 +97,8 @@ def batch_normed(func, *bn_args, **bn_kwargs):
   """
   
   def res(*args, in_size, out_size, **kwargs):
-    f = func(*args, in_size = in_size, out_size = out_size, **kwargs)
+    # No point having bias prior to batch norm.
+    f = func(*args, in_size = in_size, out_size = out_size, bias = False, **kwargs)
     
     if len(in_size) <= 2:
       batch_class = nn.BatchNorm1d
