@@ -197,7 +197,7 @@ default_layers = {
   "conv": activated(conv, relu, nn.init.calculate_gain("relu")),
   "pool": pool,
   "dense": activated(dense, relu, nn.init.calculate_gain("relu")),
-  "dropout": dropout
+  "dropout": identity   # No dropout for now.
 }
 
 
