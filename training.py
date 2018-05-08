@@ -16,6 +16,8 @@ def validate(model, val_data, metrics):
   meter = {f.__name__ : 0.0 for f in metrics}
   count = 0
   
+  model.eval()
+  
   for ins, tgts in val_data:
     if cuda:
       ins = ins.cuda()
@@ -26,6 +28,8 @@ def validate(model, val_data, metrics):
     outs = model(ins)
     for f in metrics:
       meter[f.__name__] += torch.sum(f(outs, tgts), dim = 0).item()
+  
+  model.train()
   
   for f in metrics:
     meter[f.__name__] /= count
