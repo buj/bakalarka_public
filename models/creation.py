@@ -219,17 +219,6 @@ identity = simple_act(lambda x: x)
 identity.__name__ = "identity"
 
 
-#### DEFAULTS ##########################################################
-
-default_layers = {
-  "start": identity,
-  "conv": activated(conv, relu, nn.init.calculate_gain("relu")),
-  "pool": max_pool,     # Not actually used.
-  "dense": activated(dense, relu, nn.init.calculate_gain("relu")),
-  "dropout": identity   # No dropout for now.
-}
-
-
 #### ARCHITECTURES #####################################################
 
 from .general import Functional

@@ -157,7 +157,7 @@ class _Experiment:
 
 #### EXPERIMENT GENERATION #############################################
 
-from lib.models.creation import default_layers
+from lib.models.constructors import default_layers
 from lib.training import Trainer
 
 
