@@ -32,9 +32,8 @@ def to_path(*names):
 
 
 def txt(name):
-  """Create a name-list from the given string. The character separating
-  different names is the '.' symbol."""
-  return name.split('.')
+  """Create a name-list from the given string."""
+  return name.strip().split()
 
 
 def context(left, names, right):
@@ -142,6 +141,14 @@ def plot_auto(model, data, indices = range(8)):
   plot_imgs(to_show, num_cols = 3, normalize = True)
 
 
+######## DENSITY PLOTTING ##############################################
+
+def plot_hist(data, bins = 30, **kwargs):
+  """Plots the histogram of data and shows it."""
+  plt.hist(data.detach(), bins, **kwargs)
+  plt.show()
+
+
 #### LOADING STORED STUFF ##############################################
 
 import dill
@@ -172,3 +179,44 @@ def load_model(names):
     with open(path, "rb") as fin:
       model = dill.load(fin)
   return model
+
+
+#### RANDOM STUFF ######################################################
+
+def num_params(model, only_train = True):
+  """Returns the number of parameters in the model. If <only_trainable>
+  is true, only trainable parameters are included."""
+  return sum(x.numel() for x in model.parameters() if x.requires_grad or not only_train)
+
+def params(model, only_train = True):
+  """Returns the generator of model's (trainable) parameters."""
+  return (x for x in model.parameters() if x.requires_grad or not only_train)
+
+def glue(tensors):
+  """Concatenates all the tensors into a single one-dimensional vector."""
+  return torch.cat([x.view(-1) for x in tensors])
+
+
+def std(x, center = None):
+  """Returns the distance from <center> to the given tensor <x>. If
+  <center> is None, it is assumed to be the mean of <x>."""
+  if center is None:
+    center = torch.mean(x)
+  return torch.mean((x - center)**2)**0.5
+
+
+def params_named(name, model):
+  """Returns a generator of all the model's parameters named <name>.
+  For example, it can be used to obtain all the weights ot a model,
+  excluding biases. It can be useful if it can be assumed that the
+  parameters named 'weight' have the standard meaning of multiplying
+  something."""
+  res = []
+  def func(module):
+    # Beware, some code very dependent on pytorch.
+    if "_parameters" in module.__dict__:
+      _parameters = module.__dict__["_parameters"]
+      if name in _parameters:
+        res.append(_parameters[name])
+  model.apply(func)
+  return res

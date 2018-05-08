@@ -30,7 +30,7 @@ class Scaler(nn.Module):
   """Scales the input, each element has its owen scaling factor (as
   opposed to a global scaling factor)."""
   
-  def __init__(self, in_size, eps = 10**-6):
+  def __init__(self, in_size, eps = None):
     """<in_size> is the size of the input."""
     super().__init__()
     self.weight = nn.Parameter(torch.ones(*in_size))
@@ -74,10 +74,10 @@ class Shifter(nn.Module):
   def __init__(self, in_size):
     """<in_size> is the size of the input."""
     super().__init__()
-    self.weight = nn.Parameter(torch.zeros(*in_size))
+    self.bias = nn.Parameter(torch.zeros(*in_size))
   
   def forward(self, x):
-    return x + self.weight
+    return x + self.bias
 
 
 class NegPoser(nn.Module):

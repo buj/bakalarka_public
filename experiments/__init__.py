@@ -133,9 +133,6 @@ class _Experiment:
       self.params["prefix"] = copy.copy(prefix)
       if len(prefix) == 0 or prefix[-1] != self.net:
         self.params["prefix"].append(self.net)
-    
-    with prefix_as(self.prefix):
-      _save_params(self.params, [self.name])
   
   def __getattr__(self, name):
     """If we have no attribute named <name>, check the self.params dict."""
@@ -153,6 +150,7 @@ class _Experiment:
     exp_data, model = self.func()
     with prefix_as(self.prefix):
       _append_all(exp_data, [self.name])
+      _save_params(self.params, [self.name])
       save_model(model, [self.name])
     return model
 
