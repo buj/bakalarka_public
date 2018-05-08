@@ -39,9 +39,26 @@ def conv(*args, in_size, out_size, gain = 1, **kwargs):
   return f
 
 
-def pool(*args, in_size, out_size, **kwargs):
-  """Returns a 2d max-pooling layer. Ignores <in_size> and <out_size>."""
-  return nn.MaxPool2d(*args, **kwargs)
+def avg_pool(*args, in_size, out_size, **kwargs):
+  """Returns an avg-pooling layer."""
+  if len(in_size) <= 2:
+    pool_class = nn.AvgPool1d
+  elif len(in_size) == 3:
+    pool_class = nn.AvgPool2d
+  else:
+    pool_class = nn.AvgPool3d
+  return pool_class(*args, **kwargs)
+
+
+def max_pool(*args, in_size, out_size, **kwargs):
+  """Returns a max-pooling layer."""
+  if len(in_size) <= 2:
+    pool_class = nn.MaxPool1d
+  elif len(in_size) == 3:
+    pool_class = nn.MaxPool2d
+  else:
+    pool_class = nn.MaxPool3d
+  return pool_class(*args, **kwargs)
 
 
 def dense(*args, in_size, out_size, gain = 1, **kwargs):
@@ -154,6 +171,17 @@ channel_scaled = simple_wrap(channeled(Scaler), "cs")
 channel_shifted = simple_wrap(channeled(Shifter), "csh")
 
 
+def layered(wrapper):
+  """Useful for per-layer operations."""
+  def res(out_size, *args, **kwargs):
+    # Ignore <out_size>, have only 1 weight per entire layer.
+    return wrapper((1,), *args, **kwargs)
+  return res
+
+layer_scaled = simple_wrap(layered(Scaler), "ls")
+layer_shifted = simple_wrap(layered(Shifter), "lsh")
+
+
 #### ACTIVATIONS (wrap stuff) ##########################################
 
 from lib.functional import sgnlog as sgnlog_func
@@ -196,7 +224,7 @@ identity.__name__ = "identity"
 default_layers = {
   "start": identity,
   "conv": activated(conv, relu, nn.init.calculate_gain("relu")),
-  "pool": pool,
+  "pool": max_pool,     # Not actually used.
   "dense": activated(dense, relu, nn.init.calculate_gain("relu")),
   "dropout": identity   # No dropout for now.
 }
@@ -293,22 +321,22 @@ def all_convnet(start, conv, pool, dropout, **kwargs):
     # First round of convolutions.
     conv(3, padding = 1, in_size = (3, 32, 32), out_size = (96, 32, 32)),
     conv(3, padding = 1, in_size = (96, 32, 32), out_size = (96, 32, 32)),
-    conv(2, stride = 2, in_size = (96, 32, 32), out_size = (96, 16, 16)),
+    conv(3, padding = 1, stride = 2, in_size = (96, 32, 32), out_size = (96, 16, 16)),
     dropout(0.5, in_size = (96, 16, 16), out_size = (96, 16, 16)),
     
     # Second round of convolutions.
     conv(3, padding = 1, in_size = (96, 16, 16), out_size = (192, 16, 16)),
     conv(3, padding = 1, in_size = (192, 16, 16), out_size = (192, 16, 16)),
-    conv(2, stride = 2, in_size = (192, 16, 16), out_size = (192, 8, 8)),
+    conv(3, padding = 1, stride = 2, in_size = (192, 16, 16), out_size = (192, 8, 8)),
     dropout(0.5, in_size = (192, 8, 8), out_size = (192, 8, 8)),
     
     # Last round of convolutions.
-    conv(3, padding = 1, in_size = (192, 8, 8), out_size = (192, 8, 8)),
-    conv(1, in_size = (192, 8, 8), out_size = (192, 8, 8)),
-    conv(1, in_size = (192, 8, 8), out_size = (10, 8, 8), last = True),
+    conv(3, in_size = (192, 8, 8), out_size = (192, 8, 8)),
+    conv(1, in_size = (192, 6, 6), out_size = (192, 6, 6)),
+    conv(1, in_size = (192, 6, 6), out_size = (10, 6, 6), last = True),
     
-    # Max pool to obtain results.
-    pool(8, in_size = (10, 8, 8), out_size = (10, 1, 1)),
+    # Avg pool to obtain results.
+    nn.AvgPool2d(6),
     Functional(flatten)
   ]
   
