@@ -1,5 +1,4 @@
 import torch
-import torchvision
 
 import os, logging
 
@@ -80,23 +79,66 @@ def to_categorical(y, num_classes):
   return torch.eye(num_classes)[y]
 
 
+#### META DATASET LOADER ###############################################
+
+from torchvision import transforms
+
+
+def normed(f):
+  """Returns a normalized dataset. <f> is the torchvision dataset getter."""
+  name = f.__name__
+  
+  def res():
+    logging.info("Loading normed %s dataset...", name)
+    path = os.path.join(testdata_dir, name)
+    
+    # Normalize data.
+    path_means = os.path.join(path, "means.pt")
+    path_stds = os.path.join(path, "stds.pt")
+    try:
+      means = torch.load(path_means)
+      stds = torch.load(path_stds)
+    except Exception as e:
+      # Probably not found, need to calculate it.
+      trainset = f(root = path, train = True, download = True, transform = transforms.ToTensor())
+      
+      # Calculate means.
+      means = torch.zeros_like(trainset[0][0])
+      for ins, outs in trainset:
+        means += ins
+      means /= len(trainset)
+      
+      # Calculate variances.
+      stds = torch.zeros_like(trainset[0][0])
+      for ins, outs in trainset:
+        stds += (ins - means)**2
+      stds /= len(trainset)
+      stds = stds**0.5
+      
+      # Save for future use.
+      with open(path_means, "wb") as fout:
+        torch.save(means, fout)
+      with open(path_stds, "wb") as fout:
+        torch.save(stds, fout)
+    
+    transform = transforms.Compose([
+      transforms.ToTensor(),
+      transforms.Normalize(mean = means, std = stds)
+    ])
+    
+    trainset = f(root = path, train = True, download = True, transform = transform)
+    testset = f(root = path, train = False, download = True, transform = transform)
+    logging.info("Done.")
+    return trainset, testset
+  
+  return res
+
+
 #### DATASET LOADERS ###################################################
 
-def load_MNIST():
-  logging.info("Loading MNIST dataset...")
-  path = os.path.join(testdata_dir, "MNIST")
-  transform = torchvision.transforms.ToTensor()
-  trainset = torchvision.datasets.MNIST(root = path, train = True, download = True, transform = transform)
-  testset = torchvision.datasets.MNIST(root = path, train = False, download = True, transform = transform)
-  logging.info("Done.")
-  return trainset, testset
+from torchvision import datasets
 
 
-def load_CIFAR10():
-  logging.info("Loading CIFAR10 dataset...")
-  path = os.path.join(testdata_dir, "CIFAR10")
-  transform = torchvision.transforms.ToTensor()
-  trainset = torchvision.datasets.CIFAR10(root = path, train = True, download = True, transform = transform)
-  testset = torchvision.datasets.CIFAR10(root = path, train = False, download = True, transform = transform)
-  logging.info("Done.")
-  return trainset, testset
+normed_MNIST = normed(datasets.MNIST)
+normed_CIFAR10 = normed(datasets.CIFAR10)
+normed_CIFAR100 = normed(datasets.CIFAR100)
