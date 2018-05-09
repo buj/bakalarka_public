@@ -110,6 +110,16 @@ def _save_params(params, exp_names):
         print(name, "=", value, file = fout)
 
 
+def _save_seed(seed, exp_names):
+  """Appends <seed> to the file with seeds used to generate nets."""
+  if seed is not None:
+    filename = "seeds.txt"
+    path = to_path(*exp_names, filename)
+    os.makedirs(os.path.dirname(path), exist_ok = True)
+    with open(path, "a") as fout:
+      print(seed, file = fout)
+
+
 class _Experiment:
   """Implements an experimental setup. Can be called to carry out
   the experiment coded in it."""
@@ -143,21 +153,27 @@ class _Experiment:
       return params[name]
     raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, name))
   
-  def __call__(self):
+  def __call__(self, seed = None):
     """Carry out the experiment, and automatically store its data
-    in the experiment's folder."""
+    in the experiment's folder. If <seed> is not None, set the rng seed
+    to this value."""
+    if seed is not None:
+      torch.manual_seed(seed)
+      logging.info("Random seed is: %d\n", torch.initial_seed())
+    
     logging.info("Experiment {}".format(self.name))
     exp_data, model = self.func()
     with prefix_as(self.prefix):
       _append_all(exp_data, [self.name])
       _save_params(self.params, [self.name])
+      _save_seed(seed, [self.name])
       save_model(model, [self.name])
     return model
 
 
 #### EXPERIMENT GENERATION #############################################
 
-from lib.models.constructors import default_layers
+from lib.models.constructors import base
 from lib.training import Trainer
 
 
@@ -170,7 +186,7 @@ class ExpContext:
     self.val_data = None
     self.metrics = None
     self.trainer = None
-    self.layers = default_layers
+    self.layers = {**base}
   
   def bind_trainer(self):
     """Bind the trainer to train_data, val_data, criterion, ... Usually
@@ -185,21 +201,17 @@ ctx = ExpContext()
 def gen(
   lr, net, layers = ctx.layers,
   parallel = False,
-  name = "temp", seed = None, **kwargs
+  name = "temp", **kwargs
 ):
   """Generates an experiment. The rough network architecture is
   determined by <net>, and the details are determined by <layers>."""  
   params = {
     "lr": lr, "net": net.__name__,
     **{name: f.__name__ for name, f in layers.items()},
-    "name": name, "seed": seed, **kwargs
+    "name": name, **kwargs
   }
   
   def func():
-    if seed is not None:
-      torch.manual_seed(seed)
-      logging.info("Random seed is: %d\n", torch.initial_seed())
-    
     model = net(**layers)
     logging.info("Model info:\n%s", model)
     if parallel:
