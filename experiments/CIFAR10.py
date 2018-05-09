@@ -23,6 +23,11 @@ prefix[:] = ["experiments", "CIFAR10"]
 suffix[:] = t_cent
 
 
+#### ARCHITECTURES #####################################################
+
+from .CIFAR import *
+
+
 #### EXPERIMENTS #######################################################
 
 from lib.models.constructors import *

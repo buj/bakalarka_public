@@ -35,7 +35,8 @@ def conv(*args, in_size, out_size, gain = 1, **kwargs):
   f = nn.Conv2d(in_size[0], out_size[0], *args, **kwargs)
   nn.init.xavier_normal_(f.weight, gain)
   with torch.no_grad():
-    f.bias.fill_(0.0)
+    if f.bias is not None:
+      f.bias.fill_(0.0)
   return f
 
 
@@ -69,7 +70,8 @@ def dense(*args, in_size, out_size, gain = 1, **kwargs):
   f = nn.Linear(*in_size, *out_size, *args, **kwargs)
   nn.init.xavier_normal_(f.weight, gain)
   with torch.no_grad():
-    f.bias.fill_(0.0)
+    if f.bias is not None:
+      f.bias.fill_(0.0)
   return f
 
 
@@ -185,6 +187,7 @@ layer_shifted = simple_wrap(layered(Shifter), "lsh")
 #### ACTIVATIONS (wrap stuff) ##########################################
 
 from lib.functional import sgnlog as sgnlog_func
+from lib.models.general import Functional
 
 
 def activated(func, act, gain = 1):
@@ -215,119 +218,8 @@ relu = simple_act(nn.functional.relu)
 tanh = simple_act(nn.functional.tanh)
 sgnlog = simple_act(sgnlog_func)
 
+expu = simple_act(lambda x: torch.exp(x) - 1)
+expu.__name__ = "exp"
+
 identity = simple_act(lambda x: x)
 identity.__name__ = "identity"
-
-
-#### ARCHITECTURES #####################################################
-
-from .general import Functional
-from lib.functional import flatten
-
-
-def mlp1(start, dense, dropout, **kwargs):
-  """Returns a constructed multilayer perceptron whose exact architecture
-  is described in the thesis. <start> is a function that returns a layer
-  for preprocessing the input, <dense> is the linear layer constructor."""
-  
-  pipeline = [
-    # Initial preprocessing of input.
-    dropout(0.2, in_size = (3, 32, 32), out_size = (3, 32, 32)),
-    Functional(flatten),
-    start(in_size = (3072,), out_size = (3072,)),
-    
-    dense(in_size = (3072,), out_size = (3000,)),
-    dropout(0.5, in_size = (3000,), out_size = (3000,)),
-  ]
-  # Many dense layers. Dropout after each dense layer.
-  for i in range(10):
-    pipeline.extend([
-      dense(in_size = (3000 - 200*i,), out_size = (2800 - 200*i,)),
-      dropout(0.5, in_size = (2800 - 200*i,), out_size = (2800 - 200*i,))
-    ])
-  for i in range(9):
-    pipeline.extend([
-      dense(in_size = (1000 - 100*i,), out_size = (900 - 100*i,)),
-      dropout(0.5, in_size = (900 - 100*i,), out_size = (900 - 100*i,))
-    ])
-  
-  # Final dense layer.
-  pipeline.append(dense(in_size = (100,), out_size = (10,), last = True))
-  
-  pipeline = list(filter(lambda x: x, pipeline))
-  return nn.Sequential(*pipeline)
-
-
-def convnet2(start, conv, dense, dropout, **kwargs):
-  """Returns a constructed convnet2. <start> is a function that returns
-  a layer for preprocessing the input, <conv> is the convolution layer
-  constructor, <dense> is the linear layer constructor."""
-  
-  pipeline = [
-    # Initial preprocessing of input.
-    dropout(0.2, in_size = (3, 32, 32), out_size = (3, 32, 32)),
-    start(in_size = (3, 32, 32), out_size = (3, 32, 32)),
-    
-    # First round of convolutions.
-    conv(3, padding = 1, in_size = (3, 32, 32), out_size = (6, 32, 32)),
-    conv(3, padding = 1, in_size = (6, 32, 32), out_size = (12, 32, 32)),
-    conv(2, stride = 2, in_size = (12, 32, 32), out_size = (12, 16, 16)),
-    
-    # Second round of convolutions.
-    conv(3, padding = 1, in_size = (12, 16, 16), out_size = (24, 16, 16)),
-    conv(3, padding = 1, in_size = (24, 16, 16), out_size = (48, 16, 16)),
-    conv(2, stride = 2, in_size = (48, 16, 16), out_size = (48, 8, 8)),
-    dropout(0.5, in_size = (48, 8, 8), out_size = (48, 8, 8)),
-    
-    # Last round of convolutions.
-    conv(3, padding = 1, in_size = (48, 8, 8), out_size = (96, 8, 8)),
-    conv(3, padding = 1, in_size = (96, 8, 8), out_size = (192, 8, 8)),
-    conv(2, stride = 2, in_size = (192, 8, 8), out_size = (192, 4, 4)),
-    dropout(0.5, in_size = (192, 4, 4), out_size = (192, 4, 4)),
-    
-    # Flatten and dense.
-    Functional(flatten),
-    dense(in_size = (3072,), out_size = (200,)),
-    dropout(0.5, in_size = (200,), out_size = (200,)),
-    dense(in_size = (200,), out_size = (10,), last = True)
-  ]
-  
-  pipeline = list(filter(lambda x: x, pipeline))
-  return nn.Sequential(*pipeline)
-
-
-def all_convnet(start, conv, pool, dropout, **kwargs):
-  """A convolutional network based on the 'All convolutional network'.
-  <start> is a function that returns a layer for preprocessing the input,
-  <conv> is the convolution layer constructor, <pool> is the pooling
-  layer constructor."""
-  
-  pipeline = [
-    # Initial preprocessing of input.
-    dropout(0.2, in_size = (3, 32, 32), out_size = (3, 32, 32)),
-    start(in_size = (3, 32, 32), out_size = (3, 32, 32)),
-    
-    # First round of convolutions.
-    conv(3, padding = 1, in_size = (3, 32, 32), out_size = (96, 32, 32)),
-    conv(3, padding = 1, in_size = (96, 32, 32), out_size = (96, 32, 32)),
-    conv(3, padding = 1, stride = 2, in_size = (96, 32, 32), out_size = (96, 16, 16)),
-    dropout(0.5, in_size = (96, 16, 16), out_size = (96, 16, 16)),
-    
-    # Second round of convolutions.
-    conv(3, padding = 1, in_size = (96, 16, 16), out_size = (192, 16, 16)),
-    conv(3, padding = 1, in_size = (192, 16, 16), out_size = (192, 16, 16)),
-    conv(3, padding = 1, stride = 2, in_size = (192, 16, 16), out_size = (192, 8, 8)),
-    dropout(0.5, in_size = (192, 8, 8), out_size = (192, 8, 8)),
-    
-    # Last round of convolutions.
-    conv(3, in_size = (192, 8, 8), out_size = (192, 8, 8)),
-    conv(1, in_size = (192, 6, 6), out_size = (192, 6, 6)),
-    conv(1, in_size = (192, 6, 6), out_size = (10, 6, 6), last = True),
-    
-    # Avg pool to obtain results.
-    nn.AvgPool2d(6),
-    Functional(flatten)
-  ]
-  
-  pipeline = list(filter(lambda x: x, pipeline))
-  return nn.Sequential(*pipeline)
