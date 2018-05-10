@@ -55,5 +55,5 @@ def relu_lsh_lsc_():
 def bn_relu_():
   """Batch normed (before activation) network."""
   for seed in seeds:
-    g = gen(0.01, all_convnet, layers = bn(relu(base)), parallel = True, name = "bn relu 0.01")
+    g = gen(0.04, all_convnet, layers = bn(relu(base)), parallel = True, name = "bn relu 0.04")
     g(seed).train(10).save()

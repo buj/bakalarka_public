@@ -136,7 +136,7 @@ layer_norm = simple_wrap(nn.LayerNorm, "ln")
 
 #### SCALING AND SHIFTING LAYERS #######################################
 
-from .general import Scaler, Shifter
+from .general import Scaler, Shifter, NegPoser
 
 
 def pScaler(size):
