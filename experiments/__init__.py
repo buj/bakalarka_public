@@ -91,9 +91,27 @@ def _append_all(vals, exp_names):
       _append(torch.Tensor(x), exp_names + [name1, name2])
 
 
+#### GLOBAL VARS #######################################################
+
+class ExpContext:
+  """Encapsulates variables so that they can be shared and modified
+  in other modules.  Because %@!!?!#& python can't do that."""
+  
+  def __init__(self):
+    self.train_data = None
+    self.val_data = None
+    self.criterion = None
+    self.metrics = None
+
+
+"""The one and only one context."""
+ctx = ExpContext()
+
+
 #### EXPERIMENT STRUCTURE ##############################################
 
 from lib.util import prefix, prefix_as, save_model
+from lib.training import Trainer
 
 
 def _save_params(params, exp_names):
@@ -120,105 +138,84 @@ def _save_seed(seed, exp_names):
       print(seed, file = fout)
 
 
-class _Experiment:
-  """Implements an experimental setup. Can be called to carry out
-  the experiment coded in it."""
+class ExpParams:
+  """A helper class that contains experiment parameters."""
   
-  def __init__(self, params, func):
-    """
-    <params>: the parameters of the experiment (for further
-      reproduction)
-    <func>: the function that is to be carried out. It should take
-      no arguments and return a tuple containing the experiment data
-      and trained model.
-    """
-    self.params = params
-    self.func = func
-    if "name" not in self.params:
-      self.params["name"] = func.__name__
+  def __init__(
+    self, lr, net, layers,
+    parallel = False,
+    name = "temp", **kwargs
+  ):
+    """Just store the provided arguments."""
+    self.lr = lr
+    self.net = net
+    self.layers = layers
+    self.parallel = False
+    self.name = name
+    self.kwargs = kwargs
     
     # Store the prefix. This is where the experiment folder will be located.
     global prefix
-    if "prefix" not in self.params:
-      self.params["prefix"] = copy.copy(prefix)
-      if len(prefix) == 0 or prefix[-1] != self.net:
-        self.params["prefix"].append(self.net)
+    self.prefix = copy.copy(prefix)
+    if len(self.prefix) == 0 or self.prefix[-1] != net.__name__:
+      self.prefix.append(net.__name__)
   
-  def __getattr__(self, name):
-    """If we have no attribute named <name>, check the self.params dict."""
-    if name in self.__dict__:
-      return self.__dict__[name]
-    params = self.__dict__["params"]
-    if name in params:
-      return params[name]
-    raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, name))
+  def info(self):
+    """Returns an informational dict."""
+    return {
+      "lr": self.lr, "net": self.net.__name__,
+      **{name: f.__name__ for name, f in self.layers.items()},
+      "name": self.name, **self.kwargs
+    }
+
+
+class Experiment:
+  """Implements an experiment."""
   
-  def __call__(self, seed = None):
-    """Carry out the experiment, and automatically store its data
-    in the experiment's folder. If <seed> is not None, set the rng seed
-    to this value."""
+  def __init__(self, p, seed = None):
+    """<p> contains the learning rate for the optimizer, the rough
+    network architecture <p.net>, and the details of the network
+    are determined by <p.layers>. Random seed is set to <seed>."""
     if seed is not None:
       torch.manual_seed(seed)
       logging.info("Random seed is: %d\n", torch.initial_seed())
     
-    logging.info("Experiment {}".format(self.name))
-    exp_data, model = self.func()
-    with prefix_as(self.prefix):
-      _append_all(exp_data, [self.name])
-      _save_params(self.params, [self.name])
-      _save_seed(seed, [self.name])
-      save_model(model, [self.name])
-    return model
-
-
-#### EXPERIMENT GENERATION #############################################
-
-from lib.models.constructors import base
-from lib.training import Trainer
-
-
-class ExpContext:
-  """Encapsulates variables so that they can be shared and modified
-  in other modules.  Because %@!!?!#& python can't do that."""
-  
-  def __init__(self):
-    self.train_data = None
-    self.val_data = None
-    self.metrics = None
-    self.trainer = None
-    self.layers = {**base}
-  
-  def bind_trainer(self):
-    """Bind the trainer to train_data, val_data, criterion, ... Usually
-    used only once, during initialization."""
-    self.trainer = Trainer(self.train_data, self.val_data, self.criterion, self.metrics, torch.optim.SGD)
-
-
-"""The one and only one context."""
-ctx = ExpContext()
-
-
-def gen(
-  lr, net, layers = ctx.layers,
-  parallel = False,
-  name = "temp", **kwargs
-):
-  """Generates an experiment. The rough network architecture is
-  determined by <net>, and the details are determined by <layers>."""  
-  params = {
-    "lr": lr, "net": net.__name__,
-    **{name: f.__name__ for name, f in layers.items()},
-    "name": name, **kwargs
-  }
-  
-  def func():
-    model = net(**layers)
-    logging.info("Model info:\n%s", model)
-    if parallel:
-      model = torch.nn.DataParallel(model)
+    # Construct the model.
+    self.model = p.net(**p.layers)
+    logging.info("Model info:\n%s", self.model)
+    if p.parallel:
+      self.model = torch.nn.DataParallel(self.model)
     
+    # Create a trainer for the model.
     global ctx
-    ctx.trainer.set(model = model, lr = lr, **kwargs)
-    return ctx.trainer.train(), model
+    self.trainer = Trainer(
+      self.model, ctx.train_data, ctx.val_data,
+      ctx.criterion, ctx.metrics, torch.optim.SGD
+    )
+    self.trainer.set(lr = p.lr, **p.kwargs)
+    
+    self.seed = seed
+    self.P = p
   
-  return _Experiment(params, func)
+  def train(self, num_epochs = 1):
+    """Proxy to self.trainer's train method."""
+    self.trainer.train(num_epochs)
+    return self
+  
+  def save(self):
+    """Store the experiment data in the experiment's folder."""
+    exp_data = self.trainer.data()
+    with prefix_as(self.P.prefix):
+      _append_all(exp_data, [self.P.name])
+      _save_params(self.P.info(), [self.P.name])
+      _save_seed(self.seed, [self.P.name])
+      save_model(self.model, [self.P.name])
+
+
+def gen(*args, **kwargs):
+  """A convenient way for generating experiments."""
+  p = ExpParams(*args, **kwargs)
+  def func(seed = None):
+    res = Experiment(p, seed)
+    return res
+  return func

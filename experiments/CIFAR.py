@@ -149,7 +149,6 @@ def small_net(out_size):
     
     pipeline = [
       # Initial preprocessing of input.
-      dropout(0.2, in_size = (3, 32, 32), out_size = (3, 32, 32)),
       start(in_size = (3, 32, 32), out_size = (3, 32, 32)),
       
       # First round of convolutions.

@@ -117,6 +117,8 @@ def batch_normed(func, *bn_args, **bn_kwargs):
   
   def res(*args, in_size, out_size, **kwargs):
     # No point having bias prior to batch norm.
+    if "bias" in kwargs:
+      del kwargs["bias"]
     f = func(*args, in_size = in_size, out_size = out_size, bias = False, **kwargs)
     
     if len(in_size) <= 2:
@@ -148,7 +150,13 @@ layer_normed = simple_wrap(nn.LayerNorm, "ln")
 from .general import Scaler, Shifter
 
 
+def pScaler(*args, **kwargs):
+  """Returns a Scaler whose 'proportional learning' has been enabled."""
+  return Scaler(*args, eps = 10**-6, **kwargs)
+
+
 element_scaled = simple_wrap(Scaler, "es")
+element_pscaled = simple_wrap(pScaler, "eps")
 element_shifted = simple_wrap(Shifter, "esh")
 
 def np_es_wrapper(out_size, *args, **kwargs):
@@ -170,6 +178,7 @@ def channeled(wrapper):
   return res
 
 channel_scaled = simple_wrap(channeled(Scaler), "cs")
+channel_pscaled = simple_wrap(channeled(pScaler), "cps")
 channel_shifted = simple_wrap(channeled(Shifter), "csh")
 
 
@@ -181,6 +190,7 @@ def layered(wrapper):
   return res
 
 layer_scaled = simple_wrap(layered(Scaler), "ls")
+layer_pscaled = simple_wrap(layered(pScaler), "lps")
 layer_shifted = simple_wrap(layered(Shifter), "lsh")
 
 
