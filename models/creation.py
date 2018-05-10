@@ -107,7 +107,7 @@ def batch_norm(func, *bn_args, **bn_kwargs):
       batch_class = nn.BatchNorm2d
     else:
       batch_class = nn.BatchNorm3d
-    norm = batch_class(size, *bn_args, **bn_kwargs)
+    norm = batch_class(size[0], *bn_args, **bn_kwargs)
     
     # Initialize the norm's weight and bias.
     with torch.no_grad():

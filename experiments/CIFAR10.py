@@ -36,4 +36,24 @@ small_net = small_net(10)
 from lib.models.constructors import *
 
 
+######## ALL CONVOLUTIONAL NETWORK #####################################
+
 seeds = [403670034471441514, 24169147534048556, 195976647745127160, 928871599459262954]
+
+def relu_():
+  """Plain relu network."""
+  for seed in seeds:
+    g = gen(0.01, all_convnet, layers = relu(base), parallel = True, name = "relu 0.01")
+    g(seed).train(10).save()
+
+def relu_lsh_lsc_():
+  """Network with layer shift and layer scale after each activation."""
+  for seed in seeds:
+    g = gen(0.01, all_convnet, layers = relu(lsh(lsc(base))), parallel = True, name = "relu lsh_lsc 0.01")
+    g(seed).train(10).save()
+
+def bn_relu_():
+  """Batch normed (before activation) network."""
+  for seed in seeds:
+    g = gen(0.01, all_convnet, layers = bn(relu(base)), parallel = True, name = "bn relu 0.01")
+    g(seed).train(10).save()
