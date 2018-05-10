@@ -150,7 +150,7 @@ class ExpParams:
     self.lr = lr
     self.net = net
     self.layers = layers
-    self.parallel = False
+    self.parallel = parallel
     self.name = name
     self.kwargs = kwargs
     
