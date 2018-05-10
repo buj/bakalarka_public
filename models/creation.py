@@ -8,7 +8,7 @@ import logging
 
 ######## META STUFF ####################################################
 
-def simple_wrap(wrapper, abbr):
+def simple_wrap(wrapper, abbr, last_ok = False):
   """Returns a function, that returns a layer constructor that can
   wrap a function with <wrapper>. It is assumed that <wrapper> takes
   <out_size> as the first positional argument."""
@@ -17,7 +17,11 @@ def simple_wrap(wrapper, abbr):
     """Returns a layer constructor, that wraps <func> in <wrapper>."""
     
     def res2(*args, in_size, out_size, **kwargs):
-      f = func(*args, in_size = in_size, out_size = out_size, **kwargs)
+      f = func(*args, in_size = in_size, out_size = out_size, last = last, **kwargs)
+      if kwargs.get("last", False) and not last_ok:
+        # In the last layer, ignore processing that comes after the activation.
+        # This is implemented with the 'last' flag.
+        return f
       wp = wrapper(out_size, *wp_args, **wp_kwargs)
       return nn.Sequential(f, wp)
     
@@ -117,9 +121,12 @@ def batch_normed(func, *bn_args, **bn_kwargs):
   
   def res(*args, in_size, out_size, **kwargs):
     # No point having bias prior to batch norm.
-    if "bias" in kwargs:
-      del kwargs["bias"]
-    f = func(*args, in_size = in_size, out_size = out_size, bias = False, **kwargs)
+    if "bias" not in kwargs:
+      kwargs["bias"] = False
+    f = func(*args, in_size = in_size, out_size = out_size, **kwargs)
+    if kwargs.get("last", False):
+      # In the last layer, ignore processing that comes after the activation.
+      return f
     
     if len(in_size) <= 2:
       batch_class = nn.BatchNorm1d
@@ -142,7 +149,7 @@ def batch_normed(func, *bn_args, **bn_kwargs):
   return res
 
 
-layer_normed = simple_wrap(nn.LayerNorm, "ln")
+layer_normed = simple_wrap(nn.LayerNorm, "ln", True)
 
 
 #### SCALING AND SHIFTING LAYERS #######################################
@@ -155,8 +162,8 @@ def pScaler(*args, **kwargs):
   return Scaler(*args, eps = 10**-6, **kwargs)
 
 
-element_scaled = simple_wrap(Scaler, "es")
-element_pscaled = simple_wrap(pScaler, "eps")
+element_scaled = simple_wrap(Scaler, "es", True)
+element_pscaled = simple_wrap(pScaler, "eps", True)
 element_shifted = simple_wrap(Shifter, "esh")
 
 def np_es_wrapper(out_size, *args, **kwargs):
@@ -164,7 +171,7 @@ def np_es_wrapper(out_size, *args, **kwargs):
   return NegPoser(Scaler(out_size, *args, **kwargs),
                   Scaler(out_size, *args, **kwargs))
 
-negpos_scaled = simple_wrap(np_es_wrapper, "np_es")
+negpos_scaled = simple_wrap(np_es_wrapper, "np_es", True)
 
 
 def channeled(wrapper):
@@ -177,8 +184,8 @@ def channeled(wrapper):
     return wrapper(out_info, *args, **kwargs)
   return res
 
-channel_scaled = simple_wrap(channeled(Scaler), "cs")
-channel_pscaled = simple_wrap(channeled(pScaler), "cps")
+channel_scaled = simple_wrap(channeled(Scaler), "cs", True)
+channel_pscaled = simple_wrap(channeled(pScaler), "cps", True)
 channel_shifted = simple_wrap(channeled(Shifter), "csh")
 
 
@@ -189,9 +196,9 @@ def layered(wrapper):
     return wrapper((1,), *args, **kwargs)
   return res
 
-layer_scaled = simple_wrap(layered(Scaler), "ls")
-layer_pscaled = simple_wrap(layered(pScaler), "lps")
-layer_shifted = simple_wrap(layered(Shifter), "lsh")
+layer_scaled = simple_wrap(layered(Scaler), "ls", True)
+layer_pscaled = simple_wrap(layered(pScaler), "lps", True)
+layer_shifted = simple_wrap(layered(Shifter), "lsh", True)
 
 
 #### ACTIVATIONS (wrap stuff) ##########################################
@@ -205,6 +212,8 @@ def activated(func, act, gain = 1):
   first performs <func> and then the activation act."""
   
   def res(*args, in_size, out_size, last = False, **kwargs):
+    # Activation layer is the only layer that doesn't propagate the 'last' flag.
+    # It consumes it, thus enabling layers before the activation to be constructed.
     f = func(*args, in_size = in_size, out_size = out_size, gain = (1 if last else gain), **kwargs)
     if last:
       return f

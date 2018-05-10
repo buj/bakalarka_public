@@ -16,8 +16,6 @@ ctx.train_data, ctx.val_data = normed_CIFAR100()
 ctx.criterion = torch.nn.CrossEntropyLoss()
 ctx.metrics = [cross_entropy, accuracy]
 
-ctx.bind_trainer()
-
 
 prefix[:] = ["experiments", "CIFAR100"]
 suffix[:] = t_cent
