@@ -3,17 +3,6 @@ import torch
 import logging
 
 
-#### INTERACTIVE PYTHON HISTORY ########################################
-
-import readline
-
-def history():
-  """Writes the interactive session to 'history.txt'."""
-  with open("history.txt", "w") as fout:
-    for i in range(readline.get_current_history_length()):
-      print(readline.get_history_item(i + 1), file = fout)
-
-
 #### CONVENIENCE METHODS ###############################################
 
 import os, copy
@@ -88,7 +77,7 @@ def _load_arrays(exps):
     path = to_path(*folder, filename)
     try:
       arr = torch.load(path)
-      res.append(torch.mean(arr, dim = 0))
+      res.append(arr)
     except IOError:
       logging.info("While loading arrays: file %s can't be read from (does it exist?), skipping", path)
       res.append(None)
@@ -96,7 +85,7 @@ def _load_arrays(exps):
   return res
 
 
-def plot_arrays(names, smoothing = 0, stretch = False):
+def plot_arrays(names, smoothing = 0, stretch = False, split = False):
   """
   Plots data from multiple experiments.
   <names>: List of experiment locations.
@@ -111,16 +100,26 @@ def plot_arrays(names, smoothing = 0, stretch = False):
   for name, arr in zip(names, arrays):
     if arr is None:
       continue
+    
+    # Mean of runs, or split and show them individually?
+    subs = []
+    if split:
+      for i in range(arr.shape[0]):
+        subs.append(arr[i])
+    else:
+      subs.append(torch.mean(arr, dim = 0))
+    
+    # If there is only 1 value, make a copy so that there is something to plot.
     if arr.shape[0] == 1:
       arr = torch.cat((arr, arr), dim = 0)
     
-    y = _smooth(arr, smoothing)
-    if stretch:
-      x = torch.linspace(0, 1, arr.shape[0])
-    else:
-      x = torch.arange(arr.shape[0])
-    
-    plt.plot(x.numpy(), y.numpy(), label = name[0])
+    for sub in subs:
+      y = _smooth(sub, smoothing)
+      if stretch:
+        x = torch.linspace(0, 1, sub.shape[0])
+      else:
+        x = torch.arange(sub.shape[0])
+      plt.plot(x.numpy(), y.numpy(), label = name[0])
   
   plt.legend()
   plt.show()
@@ -195,7 +194,7 @@ def load_model(names):
   return model
 
 
-#### RANDOM STUFF ######################################################
+#### MODEL INSPECTION ##################################################
 
 def num_params(model, only_train = True):
   """Returns the number of parameters in the model. If <only_trainable>
@@ -234,3 +233,18 @@ def params_named(name, model):
         res.append(_parameters[name])
   model.apply(func)
   return res
+
+
+#### RANDOM STUFF ######################################################
+
+import readline, random
+
+def history():
+  """Writes the interactive session to 'history.txt'."""
+  with open("history.txt", "w") as fout:
+    for i in range(readline.get_current_history_length()):
+      print(readline.get_history_item(i + 1), file = fout)
+
+
+def randseed():
+  return random.randint(0, 9023456789123456789)
