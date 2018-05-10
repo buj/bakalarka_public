@@ -3,6 +3,17 @@ import torch
 import logging
 
 
+#### INTERACTIVE PYTHON HISTORY ########################################
+
+import readline
+
+def history():
+  """Writes the interactive session to 'history.txt'."""
+  with open("history.txt", "w") as fout:
+    for i in range(readline.get_current_history_length()):
+      print(readline.get_history_item(i + 1), file = fout)
+
+
 #### CONVENIENCE METHODS ###############################################
 
 import os, copy
