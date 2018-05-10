@@ -3,43 +3,77 @@ from lib.models.general import Functional
 from lib.functional import flatten
 
 
+#### UTILS #############################################################
+
+def whole_act(size, kwargs):
+  return [
+    kwargs["before"](size),
+    kwargs["act"](size),
+    kwargs["after"](size)
+  ]
+
+
+def squash(pipeline):
+  """Converts lists in the pipeline into something nn.Sequentials, and
+  filters out Nones."""
+  res = []
+  for x in pipeline:
+    if x is None:
+      continue
+    if type(x) is list:
+      res.extend(x)
+    else:
+      res.append(x)
+  return res
+
+
 #### ARCHITECTURES for the CIFAR datasets ##############################
 
 def mlp1(out_size):
   """Returns a function that returns a mlp1 model, with output size <out_size>."""
   
-  def res(start, dense, dropout, **kwargs):
-    """Returns a constructed multilayer perceptron for CIFAR10 or CIFAR100
-    classification (determined by <out_size>). <start> is a function that
-    returns a layer for preprocessing the input, <dense> is the linear
-    layer constructor."""
+  def res(**kwargs):
+    dense = kwargs["dense"]
+    before = kwargs["before"]
+    act = kwargs["act"]
+    after = kwargs["after"]
+    dropout = kwargs["dropout"]
     
     pipeline = [
       # Initial preprocessing of input.
-      dropout(0.2, in_size = (3, 32, 32), out_size = (3, 32, 32)),
       Functional(flatten),
-      start(in_size = (3072,), out_size = (3072,)),
+      dropout(0.2, "1d"),
+      after((3072,)),
       
-      dense(in_size = (3072,), out_size = (3000,)),
-      dropout(0.5, in_size = (3000,), out_size = (3000,)),
+      dense(3072, 3000),
+      *whole_act((3000,), kwargs),
+      dropout(0.5, "1d")
     ]
     # Many dense layers. Dropout after each dense layer.
     for i in range(10):
+      ins = 3000 - 200*i
+      outs = ins - 200
       pipeline.extend([
-        dense(in_size = (3000 - 200*i,), out_size = (2800 - 200*i,)),
-        dropout(0.5, in_size = (2800 - 200*i,), out_size = (2800 - 200*i,))
+        dense(ins, outs),
+        *whole_act((outs,), kwargs),
+        dropout(0.5, "1d")
       ])
     for i in range(9):
+      ins = 1000 - 100*i
+      outs = ins - 100
       pipeline.extend([
-        dense(in_size = (1000 - 100*i,), out_size = (900 - 100*i,)),
-        dropout(0.5, in_size = (900 - 100*i,), out_size = (900 - 100*i,))
+        dense(ins, outs),
+        *whole_act((outs,), kwargs),
+        dropout(0.5, "1d")
       ])
     
     # Final dense layer.
-    pipeline.append(dense(in_size = (100,), out_size = (out_size,), last = True))
+    pipeline.extend([
+      dense(100, out_size),
+      before((out_size,))
+    ])
     
-    pipeline = list(filter(lambda x: x, pipeline))
-    return nn.Sequential(*pipeline)
+    return nn.Sequential(*squash(pipeline))
   
   res.__name__ = "mlp1"
   return res
@@ -50,43 +84,55 @@ def convnet2(out_size):
   """Returns a function that returns a convnet2 architecture, with
   output size <out_size>."""
   
-  def res(start, conv, dense, dropout, **kwargs):
-    """Returns a constructed convnet2 for CIFAR10 or CIFAR100, based on
-    <out_size>. <start> is a function that returns a layer for
-    preprocessing the input, <conv> is the convolution layer
-    constructor, <dense> is the linear layer constructor."""
+  def res(**kwargs):
+    conv = kwargs["conv"]
+    dense = kwargs["dense"]
+    before = kwargs["before"]
+    act = kwargs["act"]
+    after = kwargs["after"]
+    dropout = kwargs["dropout"]
     
     pipeline = [
       # Initial preprocessing of input.
-      dropout(0.2, in_size = (3, 32, 32), out_size = (3, 32, 32)),
-      start(in_size = (3, 32, 32), out_size = (3, 32, 32)),
+      dropout(0.2, "2d"),
+      after((3, 32, 32)),
       
       # First round of convolutions.
-      conv(3, padding = 1, in_size = (3, 32, 32), out_size = (6, 32, 32)),
-      conv(3, padding = 1, in_size = (6, 32, 32), out_size = (12, 32, 32)),
-      conv(2, stride = 2, in_size = (12, 32, 32), out_size = (12, 16, 16)),
+      conv(3, 6, 3, padding = 1),
+      *whole_act((6, 32, 32), kwargs),
+      conv(6, 12, 3, padding = 1),
+      *whole_act((12, 32, 32), kwargs),
+      conv(12, 12, 2, stride = 2),
+      *whole_act((12, 16, 16), kwargs),
       
       # Second round of convolutions.
-      conv(3, padding = 1, in_size = (12, 16, 16), out_size = (24, 16, 16)),
-      conv(3, padding = 1, in_size = (24, 16, 16), out_size = (48, 16, 16)),
-      conv(2, stride = 2, in_size = (48, 16, 16), out_size = (48, 8, 8)),
-      dropout(0.5, in_size = (48, 8, 8), out_size = (48, 8, 8)),
+      conv(12, 24, 3, padding = 1),
+      *whole_act((24, 16, 16), kwargs),
+      conv(24, 48, 3, padding = 1),
+      *whole_act((48, 16, 16), kwargs),
+      conv(48, 48, 2, stride = 2),
+      *whole_act((48, 8, 8), kwargs),
       
       # Last round of convolutions.
-      conv(3, padding = 1, in_size = (48, 8, 8), out_size = (96, 8, 8)),
-      conv(3, padding = 1, in_size = (96, 8, 8), out_size = (192, 8, 8)),
-      conv(2, stride = 2, in_size = (192, 8, 8), out_size = (192, 4, 4)),
-      dropout(0.5, in_size = (192, 4, 4), out_size = (192, 4, 4)),
+      conv(48, 96, 3, padding = 1),
+      *whole_act((96, 8, 8), kwargs),
+      conv(96, 192, 3, padding = 1),
+      *whole_act((192, 8, 8), kwargs),
+      conv(192, 192, 2, stride = 2),
+      *whole_act((192, 4, 4), kwargs),
+      dropout(0.5, "2d"),
       
       # Flatten and dense.
       Functional(flatten),
-      dense(in_size = (3072,), out_size = (200,)),
-      dropout(0.5, in_size = (200,), out_size = (200,)),
-      dense(in_size = (200,), out_size = (out_size,), last = True)
+      dense(3072, 200),
+      *whole_act((200,), kwargs),
+      dropout(0.5, "2d"),
+      
+      dense(200, out_size),
+      before((out_size,))
     ]
     
-    pipeline = list(filter(lambda x: x, pipeline))
-    return nn.Sequential(*pipeline)
+    return nn.Sequential(*squash(pipeline))
   
   res.__name__ = "convnet2"
   return res
@@ -97,42 +143,51 @@ def all_convnet(out_size):
   """Returns a function that constructs the all_convnet, with output
   size <out_size>."""
   
-  def res(start, conv, dropout, **kwargs):
-    """A convolutional network based on the 'All convolutional network',
-    for CIFAR10 or CIFAR100. The size of output is determined by <out_size>.
-    <start> is a function that returns a layer for preprocessing the input,
-    <conv> is the convolution layer constructor, <pool> is the pooling
-    layer constructor."""
+  def res(**kwargs):
+    """A convolutional network based on the 'All convolutional network'."""
+    conv = kwargs["conv"]
+    before = kwargs["before"]
+    act = kwargs["act"]
+    after = kwargs["after"]
+    dropout = kwargs["dropout"]
     
     pipeline = [
       # Initial preprocessing of input.
-      dropout(0.2, in_size = (3, 32, 32), out_size = (3, 32, 32)),
-      start(in_size = (3, 32, 32), out_size = (3, 32, 32)),
+      dropout(0.2, "2d"),
+      after((3, 32, 32)),
       
       # First round of convolutions.
-      conv(3, padding = 1, in_size = (3, 32, 32), out_size = (96, 32, 32)),
-      conv(3, padding = 1, in_size = (96, 32, 32), out_size = (96, 32, 32)),
-      conv(3, padding = 1, stride = 2, in_size = (96, 32, 32), out_size = (96, 16, 16)),
-      dropout(0.5, in_size = (96, 16, 16), out_size = (96, 16, 16)),
+      conv(3, 96, 3, padding = 1),
+      *whole_act((96, 32, 32), kwargs),
+      conv(96, 96, 3, padding = 1),
+      *whole_act((96, 32, 32), kwargs),
+      conv(96, 96, 3, padding = 1, stride = 2),
+      *whole_act((96, 16, 16), kwargs),
+      dropout(0.5, "2d"),
       
       # Second round of convolutions.
-      conv(3, padding = 1, in_size = (96, 16, 16), out_size = (192, 16, 16)),
-      conv(3, padding = 1, in_size = (192, 16, 16), out_size = (192, 16, 16)),
-      conv(3, padding = 1, stride = 2, in_size = (192, 16, 16), out_size = (192, 8, 8)),
-      dropout(0.5, in_size = (192, 8, 8), out_size = (192, 8, 8)),
+      conv(96, 192, 3, padding = 1),
+      *whole_act((192, 16, 16), kwargs),
+      conv(192, 192, 3, padding = 1),
+      *whole_act((192, 16, 16), kwargs),
+      conv(192, 192, 3, padding = 1, stride = 2),
+      *whole_act((192, 8, 8), kwargs),
+      dropout(0.5, "2d"),
       
       # Last round of convolutions.
-      conv(3, in_size = (192, 8, 8), out_size = (192, 8, 8)),
-      conv(1, in_size = (192, 6, 6), out_size = (192, 6, 6)),
-      conv(1, in_size = (192, 6, 6), out_size = (out_size, 6, 6), last = True),
+      conv(192, 192, 3),
+      *whole_act((192, 8, 8), kwargs),
+      conv(192, 192, 1),
+      *whole_act((192, 6, 6), kwargs),
+      conv(192, out_size, 1),
+      *whole_act((out_size, 1, 1), kwargs),
       
       # Avg pool to obtain results.
       nn.AvgPool2d(6),
       Functional(flatten)
     ]
     
-    pipeline = list(filter(lambda x: x, pipeline))
-    return nn.Sequential(*pipeline)
+    return nn.Sequential(*squash(pipeline))
   
   res.__name__ = "all_convnet"
   return res
@@ -143,31 +198,42 @@ def small_net(out_size):
   """Returns a function that constructs a convnet similar to LeNet, with
   output size <out_size>."""
   
-  def res(start, conv, dense, **kwargs):
+  def res(**kwargs):
     """A small convolutional network, for testing that doesn't
     require a GPU. Inspired by LeNet."""
+    conv = kwargs["conv"]
+    dense = kwargs["dense"]
+    before = kwargs["before"]
+    act = kwargs["act"]
+    after = kwargs["after"]
+    dropout = kwargs["dropout"]
     
     pipeline = [
       # Initial preprocessing of input.
-      start(in_size = (3, 32, 32), out_size = (3, 32, 32)),
+      after((3, 32, 32)),
       
       # First round of convolutions.
-      conv(5, in_size = (3, 32, 32), out_size = (6, 28, 28)),
+      conv(3, 6, 5),
+      *whole_act((6, 28, 28), kwargs),
       nn.MaxPool2d(2),
       
       # Second round of convolutions.
-      conv(5, in_size = (6, 14, 14), out_size = (16, 10, 10)),
+      conv(6, 16, 5),
+      *whole_act((16, 10, 10), kwargs),
       nn.MaxPool2d(2),
       
       # Flatten and dense.
       Functional(flatten),
-      dense(in_size = (400,), out_size = (120,)),
-      dense(in_size = (120,), out_size = (84,)),
-      dense(in_size = (84,), out_size = (out_size,), last = True)
+      dense(400, 120),
+      *whole_act((120,), kwargs),
+      dense(120, 84),
+      *whole_act((84,), kwargs),
+      
+      dense(84, out_size),
+      before((84,))
     ]
     
-    pipeline = list(filter(lambda x: x, pipeline))
-    return nn.Sequential(*pipeline)
+    return nn.Sequential(*squash(pipeline))
   
   res.__name__ = "small_net"
   return res

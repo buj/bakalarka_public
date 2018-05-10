@@ -1,13 +1,32 @@
 from .creation import *
 
 
+#### Meta stuff ########################################################
+
+def act_wrap(f):
+  """Should <f> be applied to 'before' or 'after'? With this decorator,
+  we can determine that based on context (whether the activation is still
+  identity or not)."""
+  def res(layers):
+    res = {**layers}
+    when = "before"
+    if layers["act"] is identity:
+      when = "after"
+    res[when] = f(layers[when])
+    return res
+  res.__name__ = f.__name__
+  return res
+
+
 #### Basic stuff #######################################################
 
 base = {
-  "start": identity,
-  "conv": conv,
-  "dense": dense,
-  "dropout": identity   # No dropout by default.
+  "conv": conv(1),
+  "dense": dense(1),
+  "before": identity,
+  "act": identity,
+  "after": identity,
+  "dropout": identity
 }
 
 def drop(layers):
@@ -22,72 +41,40 @@ def io(layers):
 
 ############ Activations ###############################################
 
-def sgnlogd(layers):
+def sgnlog(layers):
   """Signed logarithm activation."""
   return {**layers,
-    "conv": activated(layers["conv"], sgnlog),
-    "dense": activated(layers["dense"], sgnlog)
+    "act": sgnlog_act
   }
 
 
-def relud(layers):
+def relu(layers):
   """Relu activation."""
   relu_gain = nn.init.calculate_gain("relu")
   return {**layers,
-    "conv": activated(layers["conv"], relu, relu_gain),
-    "dense": activated(layers["dense"], relu, relu_gain)
+    "conv": conv(relu_gain),
+    "dense": dense(relu_gain),
+    "act": relu_act
   }
 
 
 ################ Normalizations ########################################
 
-def bn(layers):
-  """Batch norm before every activation."""
-  return {**layers,
-    "conv": batch_normed(layers["conv"]),
-    "dense": batch_normed(layers["dense"])
-  }
-
-
-def ln(layers):
-  """Layer normalization."""
-  return {**layers,
-    "conv": layer_normed(layers["conv"]),
-    "dense": layer_normed(layers["dense"])
-  }
+bn = act_wrap(batch_norm)
+ln = act_wrap(layer_norm)
 
 
 ################ Elementwise/channelwise shifting and scaling ##########
 
-def sh(layers):
-  """Elementwise/channelwise shift (add some value)."""
-  return {**layers,
-    "conv": channel_shifted(layers["conv"]),
-    "dense": element_shifted(layers["dense"])
-  }
+sh = act_wrap(shift)
+sc = act_wrap(scale)
+psc = act_wrap(pscale)
 
-
-def sc(layers):
-  """Elementwise/channelwise scale (multiply by some value)."""
-  return {**layers,
-    "conv": channel_scaled(layers["conv"]),
-    "dense": element_scaled(layers["dense"])
-  }
+np_sc = act_wrap(negpos_scale)
 
 
 ################ Layerwise shifting and scaling ########################
 
-def lsh(layers):
-  """Layerwisse shift."""
-  return {**layers,
-    "conv": layer_shifted(layers["conv"]),
-    "dense": layer_shifted(layers["dense"])
-  }
-
-
-def lsc(layers):
-  """Layerwisse scale."""
-  return {**layers,
-    "conv": layer_scaled(layers["conv"]),
-    "dense": layer_scaled(layers["dense"])
-  }
+lsh = act_wrap(layer_shift)
+lsc = act_wrap(layer_scale)
+lpsc = act_wrap(layer_pscale)

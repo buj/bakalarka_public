@@ -13,6 +13,12 @@ class Functional(nn.Module):
   
   def forward(self, x):
     return self.func(x)
+  
+  def __repr__(self):
+    name = self.func.__name__
+    if name == "identity":
+      return ""
+    return name
 
 
 #### ELEMENTWISE NORMALIZATIONS ########################################
