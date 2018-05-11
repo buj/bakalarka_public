@@ -68,7 +68,7 @@ def dropout(p, dims):
   """Returns a dropout layer. The probability of dropping a node is
   set to <p>."""
   if dims == "1d":
-    return nn.Dropout1d(p)
+    return nn.Dropout(p)
   elif dims == "2d":
     return nn.Dropout2d(p)
   return nn.Dropout3d(p)

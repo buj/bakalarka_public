@@ -42,12 +42,11 @@ def mlp1(out_size):
     pipeline = [
       # Initial preprocessing of input.
       Functional(flatten),
-      dropout(0.2, "1d"),
+      dropout(0.05, "1d"),
       after((3072,)),
       
       dense(3072, 3000),
-      *whole_act((3000,), kwargs),
-      dropout(0.5, "1d")
+      *whole_act((3000,), kwargs)
     ]
     # Many dense layers. Dropout after each dense layer.
     for i in range(10):
@@ -55,17 +54,19 @@ def mlp1(out_size):
       outs = ins - 200
       pipeline.extend([
         dense(ins, outs),
-        *whole_act((outs,), kwargs),
-        dropout(0.5, "1d")
+        *whole_act((outs,), kwargs)
       ])
+      if i == 6:
+        pipeline.append(dropout(0.5, "1d"))
     for i in range(9):
       ins = 1000 - 100*i
       outs = ins - 100
       pipeline.extend([
         dense(ins, outs),
-        *whole_act((outs,), kwargs),
-        dropout(0.5, "1d")
+        *whole_act((outs,), kwargs)
       ])
+      if i == 3:
+        pipeline.append(dropout(0.5, "1d"))
     
     # Final dense layer.
     pipeline.extend([
@@ -94,7 +95,6 @@ def convnet2(out_size):
     
     pipeline = [
       # Initial preprocessing of input.
-      dropout(0.2, "2d"),
       after((3, 32, 32)),
       
       # First round of convolutions.
@@ -153,7 +153,6 @@ def all_convnet(out_size):
     
     pipeline = [
       # Initial preprocessing of input.
-      dropout(0.2, "2d"),
       after((3, 32, 32)),
       
       # First round of convolutions.
