@@ -84,6 +84,22 @@ def to_categorical(y, num_classes):
 from torchvision import transforms
 
 
+def original(f):
+  """Returns the original, unaltered dataset. <f> is the torchvision dataset getter."""
+  name = f.__name__
+  
+  def res():
+    logging.info("Loading normed %s dataset...", name)
+    path = os.path.join(testdata_dir, name)
+    
+    trainset = f(root = path, train = True, download = True, transform = transforms.ToTensor())
+    testset = f(root = path, train = False, download = True, transform = transforms.ToTensor())
+    logging.info("Done.")
+    return trainset, testset
+  
+  return res
+
+
 def normed(f):
   """Returns a normalized dataset. <f> is the torchvision dataset getter."""
   name = f.__name__
@@ -138,6 +154,10 @@ def normed(f):
 
 from torchvision import datasets
 
+
+original_MNIST = original(datasets.MNIST)
+original_CIFAR10 = original(datasets.CIFAR10)
+original_CIFAR100 = original(datasets.CIFAR100)
 
 normed_MNIST = normed(datasets.MNIST)
 normed_CIFAR10 = normed(datasets.CIFAR10)

@@ -29,6 +29,9 @@ def squash(pipeline):
 
 #### ARCHITECTURES for the CIFAR datasets ##############################
 
+from lib.models.creation import conv as dfl_conv, dense as dfl_dense
+
+
 def mlp1(out_size):
   """Returns a function that returns a mlp1 model, with output size <out_size>."""
   
@@ -68,9 +71,9 @@ def mlp1(out_size):
       if i == 3:
         pipeline.append(dropout(0.5, "1d"))
     
-    # Final dense layer.
+    # Final dense layer, with gain 1.
     pipeline.extend([
-      dense(100, out_size),
+      dfl_dense(1)(100, out_size),
       before((out_size,))
     ])
     
@@ -128,7 +131,8 @@ def convnet2(out_size):
       *whole_act((200,), kwargs),
       dropout(0.5, "2d"),
       
-      dense(200, out_size),
+      # The last dense layer has gain 1.
+      dfl_dense(1)(200, out_size),
       before((out_size,))
     ]
     
@@ -228,7 +232,8 @@ def small_net(out_size):
       dense(120, 84),
       *whole_act((84,), kwargs),
       
-      dense(84, out_size),
+      # The last dense layer has gain 1.
+      dfl_dense(1)(84, out_size),
       before((84,))
     ]
     

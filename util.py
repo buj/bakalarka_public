@@ -134,6 +134,7 @@ def plot_img(tensor):
   """Plots a single image represented by <tensor>. The tensor should
   have dimensions (num_channels, height, width)."""
   plt.imshow(tensor.permute(1, 2, 0).squeeze(-1).numpy(), cmap = "gray")
+  plt.axis("off")
   plt.show()
 
 
