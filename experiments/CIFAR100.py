@@ -70,6 +70,3 @@ def drop_relu_lsh_lsc_():
   for seed in seeds:
     g = gen(0.01, all_convnet, layers = drop(relu(lsh(lsc(base)))), parallel = True, name = "drop relu lsh_lsc 0.01")
     g(seed).train(40).save()
-
-
-######## MLP1 ##########################################################

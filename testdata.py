@@ -129,7 +129,7 @@ def normed(f):
       for ins, outs in trainset:
         stds += (ins - means)**2
       stds /= len(trainset)
-      stds = stds**0.5
+      stds = stds**0.5 + 10**-12
       
       # Save for future use.
       with open(path_means, "wb") as fout:
@@ -155,10 +155,25 @@ def normed(f):
 from torchvision import datasets
 
 
+def custom_SVHN(*args, **kwargs):
+  """Torchvision's SVHN loader has a different interface. We have
+  to adjust it."""
+  split = "???"
+  if "train" in kwargs:
+    if kwargs["train"]:
+      split = "train"
+    else:
+      split = "test"
+    del kwargs["train"]
+  return datasets.SVHN(*args, split = split, **kwargs)
+
+
 original_MNIST = original(datasets.MNIST)
 original_CIFAR10 = original(datasets.CIFAR10)
 original_CIFAR100 = original(datasets.CIFAR100)
+original_SVHN = original(custom_SVHN)
 
 normed_MNIST = normed(datasets.MNIST)
 normed_CIFAR10 = normed(datasets.CIFAR10)
 normed_CIFAR100 = normed(datasets.CIFAR100)
+normed_SVHN = normed(custom_SVHN)

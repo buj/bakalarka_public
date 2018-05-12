@@ -121,7 +121,7 @@ def plot_arrays(names, smoothing = 0, stretch = False, split = False):
         x = torch.arange(sub.shape[0])
       plt.plot(x.numpy(), y.numpy(), label = name[0])
   
-  plt.legend()
+  plt.legend(loc = "best")
   plt.show()
 
 
