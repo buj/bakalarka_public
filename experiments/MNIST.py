@@ -7,12 +7,12 @@ import logging
 
 #### BOILERPLATE #######################################################
 
-from lib.testdata import normed_MNIST
+from lib.testdata import original_MNIST
 from lib.functional import cross_entropy, accuracy
 from lib.util import prefix, prefix_as
 
 
-ctx.train_data, ctx.val_data = normed_MNIST()
+ctx.train_data, ctx.val_data = original_MNIST()
 ctx.criterion = torch.nn.CrossEntropyLoss()
 ctx.metrics = [cross_entropy, accuracy]
 
@@ -81,6 +81,7 @@ def recurrent(order = torch.arange(784, dtype = torch.int64)):
   the specified order of pixels."""
   def res(**kwargs):
     return RecurrentMNIST(order, **kwargs)
+  res.__name__ = "recurrent"
   return res
 
 

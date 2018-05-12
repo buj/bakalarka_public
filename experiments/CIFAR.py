@@ -179,7 +179,7 @@ def all_convnet(out_size):
       
       # Last round of convolutions.
       conv(192, 192, 3),
-      *whole_act((192, 8, 8), kwargs),
+      *whole_act((192, 6, 6), kwargs),
       conv(192, 192, 1),
       *whole_act((192, 6, 6), kwargs),
       conv(192, out_size, 1),

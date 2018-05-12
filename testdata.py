@@ -173,7 +173,7 @@ original_CIFAR10 = original(datasets.CIFAR10)
 original_CIFAR100 = original(datasets.CIFAR100)
 original_SVHN = original(custom_SVHN)
 
-normed_MNIST = normed(datasets.MNIST)
+# normed_MNIST = normed(datasets.MNIST) # Bad when normalized.
 normed_CIFAR10 = normed(datasets.CIFAR10)
 normed_CIFAR100 = normed(datasets.CIFAR100)
 normed_SVHN = normed(custom_SVHN)

@@ -144,6 +144,11 @@ def pScaler(size):
   return Scaler(size, eps = 10**-6)
 
 
+scale = simple_wrap(Scaler, "sc")
+pscale = simple_wrap(pScaler, "psc")
+shift = simple_wrap(Shifter, "sh")
+
+
 def channeled(wrapper):
   """Useful for per-channel operations."""
   def res(size):
@@ -154,9 +159,9 @@ def channeled(wrapper):
     return wrapper(subsize)
   return res
 
-scale = simple_wrap(channeled(Scaler), "sc")
-pscale = simple_wrap(channeled(pScaler), "psc")
-shift = simple_wrap(channeled(Shifter), "sh")
+channel_scale = simple_wrap(channeled(Scaler), "csc")
+channel_pscale = simple_wrap(channeled(pScaler), "cpsc")
+channel_shift = simple_wrap(channeled(Shifter), "csh")
 
 
 def np_sc_wrapper(size):

@@ -70,6 +70,10 @@ sh = act_wrap(shift)
 sc = act_wrap(scale)
 psc = act_wrap(pscale)
 
+csh = act_wrap(channel_shift)
+csc = act_wrap(channel_scale)
+cpsc = act_wrap(channel_pscale)
+
 np_sc = act_wrap(negpos_scale)
 
 
