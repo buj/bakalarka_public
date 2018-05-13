@@ -40,7 +40,7 @@ def biased(k, layers):
 
 
 def drop(layers):
-  """Returns a set of layers, without dropout."""
+  """Returns a set of layers with dropout."""
   return {**layers, "dropout": dropout}
 
 

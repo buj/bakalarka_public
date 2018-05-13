@@ -46,7 +46,7 @@ class RecurrentMNIST(nn.Module):
     self.order = order
     
     # Dense layer.
-    self.input_dense = nn.Linear(1, 100)
+    self.input_dense = nn.Linear(1, 100, bias = False)
     self.state_dense = nn.Linear(100, 100)
     with torch.no_grad():
       self.input_dense.weight.data = 0.001 * torch.randn(100, 1)

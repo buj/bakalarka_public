@@ -29,7 +29,10 @@ def squash(pipeline):
 
 #### ARCHITECTURES for the CIFAR datasets ##############################
 
-from lib.models.creation import conv as dfl_conv, dense as dfl_dense
+from lib.models.constructors import base
+
+dfl_conv = base["conv"]
+dfl_dense = base["dense"]
 
 
 def mlp1(out_size):
@@ -45,7 +48,6 @@ def mlp1(out_size):
     pipeline = [
       # Initial preprocessing of input.
       Functional(flatten),
-      dropout(0.05, "1d"),
       after((3072,)),
       
       dense(3072, 3000),
@@ -59,8 +61,6 @@ def mlp1(out_size):
         dense(ins, outs),
         *whole_act((outs,), kwargs)
       ])
-      if i == 6:
-        pipeline.append(dropout(0.5, "1d"))
     for i in range(9):
       ins = 1000 - 100*i
       outs = ins - 100
@@ -68,12 +68,11 @@ def mlp1(out_size):
         dense(ins, outs),
         *whole_act((outs,), kwargs)
       ])
-      if i == 3:
-        pipeline.append(dropout(0.5, "1d"))
     
     # Final dense layer, with gain 1.
+    global dfl_dense
     pipeline.extend([
-      dfl_dense(1)(100, out_size),
+      dfl_dense(100, out_size),
       before((out_size,))
     ])
     
@@ -132,7 +131,8 @@ def convnet2(out_size):
       dropout(0.5, "2d"),
       
       # The last dense layer has gain 1.
-      dfl_dense(1)(200, out_size),
+      global dfl_dense
+      dfl_dense(200, out_size),
       before((out_size,))
     ]
     
@@ -233,7 +233,8 @@ def small_net(out_size):
       *whole_act((84,), kwargs),
       
       # The last dense layer has gain 1.
-      dfl_dense(1)(84, out_size),
+      global dfl_dense
+      dfl_dense(84, out_size),
       before((84,))
     ]
     
