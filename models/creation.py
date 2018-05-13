@@ -6,34 +6,6 @@ import logging
 
 #### LAYER CONSTRUCTORS ################################################
 
-######## META STUFF ####################################################
-
-def simple_wrap(wrapper, abbr):
-  """Returns a function, that returns a layer constructor that can
-  wrap a function with <wrapper>."""
-  
-  def res1(func, *wp_args, **wp_kwargs):
-    """Returns a layer constructor, that wraps <func> in <wrapper>."""
-    
-    def res2(size):
-      wp = wrapper(size, *wp_args, **wp_kwargs)
-      f = func(size)
-      
-      # Returns a list of modules, in the order in which they are to
-      # be executed.
-      res = [wp]
-      if type(f) is list:
-        res.extend(f)
-      else:
-        res.append(f)
-      return res
-    
-    res2.__name__ = "{}_{}".format(abbr, func.__name__) if func is not None else abbr
-    return res2
-  
-  return res1
-
-
 ######## BASIC STUFF ###################################################
 
 def conv(gain):
@@ -89,6 +61,44 @@ def io_dense(in_size, out_size, gain = 1):
   with torch.no_grad():
     f.bias.fill_(0.0)
   return f
+
+
+def bias_lr(k, func):
+  """Wraps the layer <func> so that its bias learns <k>-times faster."""
+  def res(*args, **kwargs):
+    f = func(*args, **kwargs)
+    if f.bias is not None:
+      f.bias.register_hook(lambda grad: grad * k)
+    return f
+  return res
+
+
+######## META STUFF ####################################################
+
+def simple_wrap(wrapper, abbr):
+  """Returns a function, that returns a layer constructor that can
+  wrap a function with <wrapper>."""
+  
+  def res1(func, *wp_args, **wp_kwargs):
+    """Returns a layer constructor, that wraps <func> in <wrapper>."""
+    
+    def res2(size):
+      wp = wrapper(size, *wp_args, **wp_kwargs)
+      f = func(size)
+      
+      # Returns a list of modules, in the order in which they are to
+      # be executed.
+      res = [wp]
+      if type(f) is list:
+        res.extend(f)
+      else:
+        res.append(f)
+      return res
+    
+    res2.__name__ = "{}_{}".format(abbr, func.__name__) if func is not None else abbr
+    return res2
+  
+  return res1
 
 
 ######## NORM LAYERS (wrap stuff) ######################################

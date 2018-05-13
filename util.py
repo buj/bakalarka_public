@@ -85,6 +85,11 @@ def _load_arrays(exps):
   return res
 
 
+def plot(arr, smoothing = 0):
+  """Plot values in array <arr>."""
+  
+
+
 def plot_arrays(names, smoothing = 0, stretch = False, split = False):
   """
   Plots data from multiple experiments.
@@ -234,6 +239,85 @@ def params_named(name, model):
         res.append(_parameters[name])
   model.apply(func)
   return res
+
+
+######## TRACKING DATA during FORWARD propagation ######################
+
+from collections import defaultdict
+from lib.functional import flatten
+
+
+def out_mm(h):
+  """Returns a hook that will append the mean of mean output to <h>."""
+  def res(module, ins, outs):
+    with torch.no_grad():
+      h["out_mm"].append(torch.mean(outs))
+  return res
+
+
+def out_mv(h):
+  """Returns a hook that will append the mean of the variance of
+  the output to <h>."""
+  def res(module, ins, outs):
+    with torch.no_grad():
+      h["out_mv"].append(torch.mean(torch.var(flatten(outs), 1, unbiased = False)))
+  return res
+
+
+def out_vm(h):
+  """Returns a hook that will append the variance of the mean of
+  the output to <h>."""
+  def res(module, ins, outs):
+    with torch.no_grad():
+      h["out_vm"].append(torch.var(torch.mean(flatten(outs), 1), unbiased = False))
+  return res
+
+
+def out_vv(h):
+  """Returns a hook that will append the variance of the variance of
+  the output to <h>."""
+  def res(module, ins, outs):
+    with torch.no_grad():
+      h["out_vv"].append(torch.var(torch.var(flatten(outs), 1, unbiased = False), unbiased = False))
+  return res
+
+
+def track_forward(module, g):
+  """Wraps the module <module> so that we can track values calculated
+  during forward propagation in time. The tracked value is determined
+  by the choice of hook generator <g>. Doesn't work in recurrent networks."""
+  if not hasattr(param, "h"):
+    module.h = defaultdict(list)
+  module.register_forward_hook(g(module.h))
+
+
+######## TRACKING DATA during BACKWARD propagation #####################
+
+def grad_mean(h):
+  """Returns a hook that will append mean gradient to <h>. Can be applied
+  to parameters only."""
+  def res(grad):
+    with torch.no_grad():
+      h["grad_mean"].append(torch.mean(grad))
+  return res
+
+
+def grad_var(h):
+  """Returns a hook that will append variance of the gradient to <h>.
+  Can be applied to parameters only."""
+  def res(grad):
+    with torch.no_grad():
+      h["grad_var"].append(torch.var(grad, unbiased = False))
+  return res
+
+
+def track_backward(param, g):
+  """Wraps the parameter <param> so that we can track gradients calculated
+  during backward propagation. What is tracked is determined by the hook
+  generator <g>."""
+  if not hasattr(param, "h"):
+    param.h = defaultdict(list)
+  param.register_hook(g(param.h))
 
 
 #### RANDOM STUFF ######################################################

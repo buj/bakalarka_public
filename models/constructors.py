@@ -29,6 +29,16 @@ base = {
   "dropout": identity
 }
 
+
+def biased(k, layers):
+  """Returns a set of layers where dense and conv's biases are learning
+  <k> times faster."""
+  return {**layers,
+    "dense": bias_lr(k, layers["dense"]),
+    "conv": bias_lr(k, layers["conv"])
+  }
+
+
 def drop(layers):
   """Returns a set of layers, without dropout."""
   return {**layers, "dropout": dropout}
