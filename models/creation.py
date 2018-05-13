@@ -8,12 +8,12 @@ import logging
 
 ######## BASIC STUFF ###################################################
 
-def conv(gain):
-  """Returns a convolution layer constructor. <gain> is used during
-  Xavier intialization."""
+def conv(bias = True):
+  """Returns a convolution layer constructor. <bias> determines whether
+  the layer should have the bias parameter or not. Weights are not
+  initialized, biases are set to 0."""
   def res(*args, **kwargs):
-    f = nn.Conv2d(*args, **kwargs)
-    nn.init.xavier_normal_(f.weight, gain)
+    f = nn.Conv2d(*args, bias = bias, **kwargs)
     with torch.no_grad():
       if f.bias is not None:
         f.bias.fill_(0.0)
@@ -21,14 +21,12 @@ def conv(gain):
   return res
 
 
-def dense(gain):
-  """Returns a dense layer constructor. <gain> is used during Xavier
-  initialization."""
+def dense(bias = True):
+  """Returns a dense layer constructor. <bias> determines whether the
+  layer should have the bias parameter or not. Weights are not
+  initialized, biases are set to 0."""
   def res(*args, **kwargs):
-    """Returns a linear layer with weights initialized with Xavier and
-    rescaled by <gain>."""
-    f = nn.Linear(*args, **kwargs)
-    nn.init.xavier_normal_(f.weight, gain)
+    f = nn.Linear(*args, bias = bias, **kwargs)
     with torch.no_grad():
       if f.bias is not None:
         f.bias.fill_(0.0)
@@ -52,12 +50,10 @@ from .general import IoLinear
 
 
 def io_dense(in_size, out_size, gain = 1):
-  """Returns an io_linear layer with standard input-to-output weights
-  initialized with Xavier and rescaled by <gain>. Input weights and
-  output weights are set to 0. Input size is <in_size>, output size
-  is <out_size>."""
+  """Returns an io_linear layer. Ordinary weights are left uninitialized,
+  input weights and output weights are set to 0. Input size is <in_size>,
+  output size is <out_size>."""
   f = IoLinear(in_size, out_size)
-  nn.init.xavier_normal_(f.weight, gain)
   with torch.no_grad():
     f.bias.fill_(0.0)
   return f
@@ -69,6 +65,16 @@ def bias_lr(k, func):
     f = func(*args, **kwargs)
     if f.bias is not None:
       f.bias.register_hook(lambda grad: grad * k)
+    return f
+  return res
+
+
+def xavier_init(gain, func):
+  """(Re)initializes the dense/conv layer constructed from <func>
+  using Xavier initialization with gain <gain>."""
+  def res(*args, **kwargs):
+    f = func(*args, **kwargs)
+    nn.init.xavier_normal_(f.weight, gain)
     return f
   return res
 

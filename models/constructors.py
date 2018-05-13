@@ -21,8 +21,8 @@ def act_wrap(f):
 #### Basic stuff #######################################################
 
 base = {
-  "conv": conv(1),
-  "dense": dense(1),
+  "conv": xavier_init(1, conv()),
+  "dense": xavier_init(1, dense()),
   "before": identity,
   "act": identity,
   "after": identity,
@@ -62,8 +62,8 @@ def relu(layers):
   """Relu activation."""
   relu_gain = nn.init.calculate_gain("relu")
   return {**layers,
-    "conv": conv(relu_gain),
-    "dense": dense(relu_gain),
+    "conv": xavier_init(relu_gain, layers["conv"]),
+    "dense": xavier_init(relu_gain, layers["dense"]),
     "act": relu_act
   }
 
