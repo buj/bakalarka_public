@@ -39,6 +39,7 @@ def mlp1(out_size):
   """Returns a function that returns a mlp1 model, with output size <out_size>."""
   
   def res(**kwargs):
+    global dfl_dense
     dense = kwargs["dense"]
     before = kwargs["before"]
     act = kwargs["act"]
@@ -51,7 +52,8 @@ def mlp1(out_size):
       after((3072,)),
       
       dense(3072, 3000),
-      *whole_act((3000,), kwargs)
+      *whole_act((3000,), kwargs),
+      dropout(0.1, "1d")
     ]
     # Many dense layers. Dropout after each dense layer.
     for i in range(10):
@@ -59,18 +61,19 @@ def mlp1(out_size):
       outs = ins - 200
       pipeline.extend([
         dense(ins, outs),
-        *whole_act((outs,), kwargs)
+        *whole_act((outs,), kwargs),
+        dropout(0.1, "1d")
       ])
     for i in range(9):
       ins = 1000 - 100*i
       outs = ins - 100
       pipeline.extend([
         dense(ins, outs),
-        *whole_act((outs,), kwargs)
+        *whole_act((outs,), kwargs),
+        dropout(0.1, "1d")
       ])
     
     # Final dense layer, with gain 1.
-    global dfl_dense
     pipeline.extend([
       dfl_dense(100, out_size),
       before((out_size,))
@@ -88,6 +91,7 @@ def convnet2(out_size):
   output size <out_size>."""
   
   def res(**kwargs):
+    global dfl_dense
     conv = kwargs["conv"]
     dense = kwargs["dense"]
     before = kwargs["before"]
@@ -131,7 +135,6 @@ def convnet2(out_size):
       dropout(0.5, "2d"),
       
       # The last dense layer has gain 1.
-      global dfl_dense
       dfl_dense(200, out_size),
       before((out_size,))
     ]
@@ -204,6 +207,7 @@ def small_net(out_size):
   def res(**kwargs):
     """A small convolutional network, for testing that doesn't
     require a GPU. Inspired by LeNet."""
+    global dfl_dense
     conv = kwargs["conv"]
     dense = kwargs["dense"]
     before = kwargs["before"]
@@ -233,7 +237,6 @@ def small_net(out_size):
       *whole_act((84,), kwargs),
       
       # The last dense layer has gain 1.
-      global dfl_dense
       dfl_dense(84, out_size),
       before((84,))
     ]

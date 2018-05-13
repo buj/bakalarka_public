@@ -79,6 +79,16 @@ def xavier_init(gain, func):
   return res
 
 
+def scale_w(k, func):
+  """Rescales the weights of a dense/conv layer constructed from <func>."""
+  def res(*args, **kwargs):
+    f = func(*args, **kwargs)
+    with torch.no_grad():
+      f.weight *= k
+    return f
+  return res
+
+
 ######## META STUFF ####################################################
 
 def simple_wrap(wrapper, abbr):

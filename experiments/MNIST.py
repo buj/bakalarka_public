@@ -51,8 +51,10 @@ class RecurrentMNIST(nn.Module):
     with torch.no_grad():
       self.input_dense.weight.data = 0.001 * torch.randn(100, 1)
       self.state_dense.weight.data = torch.eye(100)
-      self.input_dense.bias.fill_(0.0)
-      self.state_dense.bias.fill_(0.0)
+      if self.input_dense.bias is not None:
+        self.input_dense.bias.fill_(0.0)
+      if self.state_dense.bias is not None:
+        self.state_dense.bias.fill_(0.0)
     
     # Other, bonus layers.
     self.before = from_list(kwargs["before"]((100,)))
@@ -63,7 +65,8 @@ class RecurrentMNIST(nn.Module):
     self.output = nn.Linear(100, 10)
     nn.init.xavier_normal_(self.output.weight)
     with torch.no_grad():
-      self.output.bias.fill_(0.0)
+      if self.output.bias is not None:
+        self.output.bias.fill_(0.0)
   
   def forward(self, x):
     """Flattens <x>, permutes it, and processes it pixel by pixel."""

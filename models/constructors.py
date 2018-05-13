@@ -44,6 +44,18 @@ def drop(layers):
   return {**layers, "dropout": dropout}
 
 
+def soft_drop(layers):
+  """Use dropout, and rescale the previous dense/conv layer's weights
+  so that there is no blowing up of network output. Assume dropout with
+  p = 0.1."""
+  return {**layers,
+    "dense": scale_w(0.9**0.5, layers["dense"]),
+    "conv": scale_w(0.9**0.5, layers["dense"]),
+    "dropout": dropout
+  }
+  
+
+
 def io(layers):
   """Uses the IO-dense layer instead of the dense layer. Not recommended."""
   return {**layers, "dense": io_dense}
