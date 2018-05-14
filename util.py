@@ -293,21 +293,39 @@ def track_forward(module, g):
 
 ######## TRACKING DATA during BACKWARD propagation #####################
 
-def grad_mean(h):
-  """Returns a hook that will append mean gradient to <h>. Can be applied
-  to parameters only."""
+def grad_mean(param):
+  """Returns a hook that will append mean gradient to <param.h>. Can
+  be applied to parameters only."""
   def res(grad):
     with torch.no_grad():
-      h["grad_mean"].append(torch.mean(grad))
+      param.h["grad_mean"].append(torch.mean(grad).item())
   return res
 
 
-def grad_var(h):
-  """Returns a hook that will append variance of the gradient to <h>.
-  Can be applied to parameters only."""
+def grad_var(param):
+  """Returns a hook that will append variance of the gradient to
+  <param.h>. Can be applied to parameters only."""
   def res(grad):
     with torch.no_grad():
-      h["grad_var"].append(torch.var(grad, unbiased = False))
+      param.h["grad_var"].append(torch.var(grad, unbiased = False).item())
+  return res
+
+
+def val_mean(param):
+  """Returns a hook that will append mean of the parameter <param>'s
+  value to <param.h>. Can be applied to parameters only."""
+  def res(grad):
+    with torch.no_grad():
+      param.h["val_mean"].append(torch.mean(param).item())
+  return res
+
+
+def val_var(param):
+  """Returns a hook that will append variance of the parameter <param>'s
+  value to <param.h>. Can be applied to parameters only."""
+  def res(grad):
+    with torch.no_grad():
+      param.h["val_var"].append(torch.var(param, unbiased = False).item())
   return res
 
 
@@ -317,7 +335,7 @@ def track_backward(param, g):
   generator <g>."""
   if not hasattr(param, "h"):
     param.h = defaultdict(list)
-  param.register_hook(g(param.h))
+  param.register_hook(g(param))
 
 
 #### RANDOM STUFF ######################################################
