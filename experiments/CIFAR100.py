@@ -26,6 +26,7 @@ suffix[:] = t_cent
 from .CIFAR import *
 
 mlp1 = mlp1(100)
+mlp2 = mlp2(100)
 convnet2 = convnet2(100)
 all_convnet = all_convnet(100)
 small_net = small_net(100)

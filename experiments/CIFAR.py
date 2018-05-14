@@ -83,6 +83,65 @@ def mlp1(out_size):
   return res
 
 
+def mlp2(out_size):
+  """Returns a function that returns the mlp2 model, with output size <out_size>."""
+  
+  def res(**kwargs):
+    dense = kwargs["dense"]
+    before = kwargs["before"]
+    act = kwargs["act"]
+    after = kwargs["after"]
+    dropout = kwargs["dropout"]
+    
+    pipeline = [
+      # Initial preprocessing of input.
+      Functional(flatten),
+      after((3072,)),
+      
+      # Initial stage.
+      dense(3072, 3000),
+      *whole_act((3000,), kwargs)
+    ]
+    
+    # Aggressive reduction.
+    pipeline.extend([
+      dropout(0.5, "1d"),
+      dense(3000, 1000),
+      *whole_act((1000,), kwargs)
+    ])
+    
+    # Middle stages.
+    for i in range(10):
+      pipeline.extend([
+        dense(1000, 1000),
+        *whole_act((1000,), kwargs)
+      ])
+    
+    # Aggressive reduction 2.
+    pipeline.extend([
+      dropout(0.5, "1d"),
+      dense(1000, 300),
+      *whole_act((300,), kwargs)
+    ])
+    
+    # Late stages.
+    for i in range(10):
+      pipeline.extend([
+        dense(300, 300),
+        *whole_act((300,), kwargs)
+      ])
+    
+    # Final dense layer, with gain 1.
+    pipeline.extend([
+      dfl_dense(300, out_size),
+      before((out_size,))
+    ])
+    
+    return nn.Sequential(*squash(pipeline))
+  
+  res.__name__ = "mlp2"
+  return res
+
 
 def convnet2(out_size):
   """Returns a function that returns a convnet2 architecture, with
