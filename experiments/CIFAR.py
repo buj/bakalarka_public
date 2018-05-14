@@ -29,17 +29,13 @@ def squash(pipeline):
 
 #### ARCHITECTURES for the CIFAR datasets ##############################
 
-from lib.models.constructors import base
-
-dfl_conv = base["conv"]
-dfl_dense = base["dense"]
+from lib.models.creation import dfl_dense, dfl_conv
 
 
 def mlp1(out_size):
   """Returns a function that returns a mlp1 model, with output size <out_size>."""
   
   def res(**kwargs):
-    global dfl_dense
     dense = kwargs["dense"]
     before = kwargs["before"]
     act = kwargs["act"]
@@ -53,7 +49,7 @@ def mlp1(out_size):
       
       dense(3072, 3000),
       *whole_act((3000,), kwargs),
-      dropout(0.1, "1d")
+      dropout(0.5, "1d")
     ]
     # Many dense layers. Dropout after each dense layer.
     for i in range(10):
@@ -61,17 +57,19 @@ def mlp1(out_size):
       outs = ins - 200
       pipeline.extend([
         dense(ins, outs),
-        *whole_act((outs,), kwargs),
-        dropout(0.1, "1d")
+        *whole_act((outs,), kwargs)
       ])
+      if i % 2 == 1:
+        pipeline.append(dropout(0.5, "1d"))
     for i in range(9):
       ins = 1000 - 100*i
       outs = ins - 100
       pipeline.extend([
         dense(ins, outs),
         *whole_act((outs,), kwargs),
-        dropout(0.1, "1d")
       ])
+      if i % 2 == 1:
+        pipeline.append(dropout(0.5, "1d"))
     
     # Final dense layer, with gain 1.
     pipeline.extend([
@@ -91,7 +89,6 @@ def convnet2(out_size):
   output size <out_size>."""
   
   def res(**kwargs):
-    global dfl_dense
     conv = kwargs["conv"]
     dense = kwargs["dense"]
     before = kwargs["before"]
@@ -207,7 +204,6 @@ def small_net(out_size):
   def res(**kwargs):
     """A small convolutional network, for testing that doesn't
     require a GPU. Inspired by LeNet."""
-    global dfl_dense
     conv = kwargs["conv"]
     dense = kwargs["dense"]
     before = kwargs["before"]

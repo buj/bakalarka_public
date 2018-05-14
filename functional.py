@@ -53,11 +53,7 @@ def mean_squared_error(outs, tgts):
 def cross_entropy(outs, tgts):
   """<tgts> is a number specifying which category is the right one.
   It is NOT a one-hot encoded target vector."""
-  temp = torch.sum(flatten(torch.exp(outs)), dim = 1)
-  i = outs.new_empty(0, dtype = torch.long)
-  torch.arange(outs.shape[0], out = i)
-  return -outs[i, tgts] + torch.log(temp)
-
+  return torch.nn.functional.cross_entropy(outs, tgts, reduce = False)
 
 def accuracy(outs, tgts):
   """<tgts> is a number specifying which category is the right one.

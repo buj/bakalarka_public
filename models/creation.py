@@ -78,6 +78,10 @@ def xavier_init(gain, func):
     return f
   return res
 
+# Default dense and conv layers.
+dfl_dense = xavier_init(1, dense())
+dfl_conv = xavier_init(1, conv())
+
 
 def scale_w(k, func):
   """Rescales the weights of a dense/conv layer constructed from <func>."""

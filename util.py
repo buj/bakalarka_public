@@ -87,7 +87,8 @@ def _load_arrays(exps):
 
 def plot(arr, smoothing = 0):
   """Plot values in array <arr>."""
-  
+  plt.plot(_smooth(arr, smoothing))
+  plt.show()
 
 
 def plot_arrays(names, smoothing = 0, stretch = False, split = False):

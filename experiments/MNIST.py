@@ -25,6 +25,8 @@ suffix[:] = t_cent
 
 from torch import nn
 from lib.functional import flatten
+from lib.models.creation import dfl_dense
+from lib.models.general import Functional
 
 
 def from_list(l):
@@ -86,6 +88,47 @@ def recurrent(order = torch.arange(784, dtype = torch.int64)):
     return RecurrentMNIST(order, **kwargs)
   res.__name__ = "recurrent"
   return res
+
+
+def simple_mlp(**kwargs):
+  """Returns a simple and relatively shallow multilayer perceptron."""
+  dense = kwargs["dense"]
+  before = kwargs["before"]
+  act = kwargs["act"]
+  after = kwargs["after"]
+  dropout = kwargs["dropout"]
+  
+  pipeline = [
+    Functional(flatten),
+    after((784,)),
+    
+    # Round 1.
+    dense(784, 1200),
+    before((1200,)),
+    act((1200,)),
+    after((1200,)),
+    dropout(0.5, "1d"),
+    
+    # Round 2.
+    dense(1200, 1200),
+    before((1200,)),
+    act((1200,)),
+    after((1200,)),
+    dropout(0.5, "1d"),
+    
+    # Round 3.
+    dense(1200, 1200),
+    before((1200,)),
+    act((1200,)),
+    after((1200,)),
+    dropout(0.5, "1d"),
+    
+    # Output.
+    dfl_dense(1200, 10),
+    before((10,))
+  ]
+  
+  return nn.Sequential(*pipeline)
 
 
 #### EXPERIMENTS #######################################################

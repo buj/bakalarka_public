@@ -49,8 +49,8 @@ def soft_drop(layers):
   so that there is no blowing up of network output. Assume dropout with
   p = 0.1."""
   return {**layers,
-    "dense": scale_w(0.9**0.5, layers["dense"]),
-    "conv": scale_w(0.9**0.5, layers["dense"]),
+    "dense": scale_w(0.5**0.5, layers["dense"]),
+    "conv": scale_w(0.5**0.5, layers["dense"]),
     "dropout": dropout
   }
   
