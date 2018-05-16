@@ -56,7 +56,13 @@ def plot_exps(exps, smoothing = 0, **kwargs):
   current working directory 'prefix', and after that come suffixes from
   'suffix'."""
   global suffix
-  plot_arrays(context([], exps, suffix), smoothing, **kwargs)
+  xlabel = "steps"
+  ylabel = "training"
+  if suffix[0] == "val":
+    xlabel = "epochs"
+    ylabel = "validation"
+  ylabel += " " + suffix[1].replace('_', ' ')
+  plot_arrays(context([], exps, suffix), smoothing, xlabel = xlabel, ylabel = ylabel, **kwargs)
 
 
 #### ARRAY MANIPULATION ################################################

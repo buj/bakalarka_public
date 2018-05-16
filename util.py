@@ -54,6 +54,29 @@ from matplotlib import pyplot as plt
 
 ######## ARRAY PLOTTING ################################################
 
+import math
+
+def fix(arr, default = math.log(10), max_range = 1000):
+  """Fills in holes in arr. Values 'nan' and 'inf' are replaced by the
+  last normal value. If the first few values are missing, fill them in
+  with <default>."""
+  res = []
+  for t in range(arr.shape[0]):
+    last = default
+    badness = 0
+    res.append([])
+    for i in range(arr.shape[1]):
+      val = arr[t][i].item()
+      if not math.isfinite(val):
+        badness += 1
+        if badness < max_range:
+          val = last
+      else:
+        last = val
+      res[t].append(val)
+  return torch.Tensor(res)
+
+
 def _smooth(vals, k):
   """Smoothens the array <vals>. Returns a new array where the i-th value
   is the running average of the prior values and that value."""
@@ -91,7 +114,7 @@ def plot(arr, smoothing = 0):
   plt.show()
 
 
-def plot_arrays(names, smoothing = 0, stretch = False, split = False):
+def plot_arrays(names, smoothing = 0, **kwargs):
   """
   Plots data from multiple experiments.
   <names>: List of experiment locations.
@@ -100,12 +123,28 @@ def plot_arrays(names, smoothing = 0, stretch = False, split = False):
     run), this option will adjust their lengths so that they have equal
     length.
   """
+  # Lots of default arguments for customization.
+  stretch = kwargs.get("stretch", False)
+  split = kwargs.get("split", False)
+  fixarrs = kwargs.get("fix", True)
+  show = kwargs.get("show", True)
+  xlabel = kwargs.get("xlabel", None)
+  ylabel = kwargs.get("ylabel", None)
+  save_loc = kwargs.get("save", None)
+  lw = kwargs.get("lw", 2)
+  max_y = kwargs.get("ylim", None)
+  max_x = 0
+  
   arrays = _load_arrays(names)
   
   # Do smoothing, legend and plot.
   for name, arr in zip(names, arrays):
     if arr is None:
       continue
+    if fixarrs:
+      arr = fix(arr)
+    
+    max_x = max(max_x, arr.shape[1])
     
     # Mean of runs, or split and show them individually?
     subs = []
@@ -124,11 +163,45 @@ def plot_arrays(names, smoothing = 0, stretch = False, split = False):
       if stretch:
         x = torch.linspace(0, 1, sub.shape[0])
       else:
-        x = torch.arange(sub.shape[0])
-      plt.plot(x.numpy(), y.numpy(), label = name[0])
+        x = torch.arange(sub.shape[0]) + 1
+      label = ' '.join(name[0].strip().split()[:-1])
+      plt.plot(x.numpy(), y.numpy(), label = label, lw = lw)
+  
+  xstep = max_x // 10
+  
+  # Determine the order of magnitude.
+  temp = xstep
+  magn = 1
+  while temp >= 10:
+    temp //= 10
+    magn *= 10
+  xticks = [1] if xstep > 1 else []
+  xticks.extend(range(xstep, max_x + 1, xstep))
+  xlabels = ["{:.1f}".format(x / magn) for x in xticks]
+  if magn > 1:
+    if xlabel is not None:
+      xlabel += " (x {})".format(magn)
+    plt.xticks(xticks, xlabels)
+  else:
+    plt.xticks(xticks)
+  
+  if xlabel is not None:
+    plt.xlabel(xlabel)
+  if ylabel is not None:
+    plt.ylabel(ylabel)
+  
+  if max_y is not None:
+    max_y = min(plt.ylim()[1], max_y)
+    plt.ylim(ymax = max_y)
   
   plt.legend(loc = "best")
-  plt.show()
+  plt.grid()
+  
+  if save_loc is not None:
+    plt.savefig(save_loc, bbox_inches = "tight")
+  if show:
+    plt.show()
+  plt.gcf().clear()
 
 
 ######## IMAGE PLOTTING ################################################
